@@ -905,6 +905,7 @@
     my.antigravity-manager
     compfy
     picom
+    playwright-mcp
     # (callPackage /etc/nixos/pkgs/picom-animations.nix { })
     # (pkgs.callPackage /mnt/md127/nixpkgs/pkgs/applications/networking/instant-messengers/telegram/tdesktop { })
     # (pkgs.qt6Packages.callPackage /mnt/md127/nixpkgs/pkgs/applications/networking/instant-messengers/telegram/tdesktop {
@@ -925,7 +926,7 @@
     #   name = "tdesktop";
     #   version = "p5.13.1";
     #   src = fetchFromGitHub {
-    #     owner = "p2d0";
+    #     owner = "p-720";
     #     repo = "tdesktop";
     #     rev = "a2422d1a49d9ac4cf1387312418e1772efb6195b";
     #     fetchSubmodules = true;
@@ -935,7 +936,7 @@
     open-webui
     ddcutil
     unstable.telegram-desktop
-    # tdesktop_p2d0
+    # tdesktop_p-720
     nil
     jpegoptim
     chatterino2

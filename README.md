@@ -26,7 +26,7 @@
    # Set USER to your desired username (defaults to hlissner)
    USER=...
 
-   git clone https://github.com/p2d0/nix-dotfiles /etc/nixos
+   git clone https://github.com/p-720/nix-dotfiles /etc/nixos
    cd /etc/nixos
    
    # Create a host config in `hosts/` and add it to the repo:

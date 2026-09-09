@@ -1,12 +1,12 @@
 [submodule "modules/nixos/taffybar/build/taffybar"]
 	path = modules/nixos/taffybar/build/taffybar
-	url = git@github.com:p2d0/my-taffybar-config.git
+	url = git@github.com:p-720/my-taffybar-config.git
 [submodule "configs/ideavim/.intellimacs"]
 	path = configs/ideavim/.intellimacs
 	url = https://github.com/MarcoIeni/intellimacs.git
 [submodule "modules/nixos/editors/.doom.d"]
 	path = modules/nixos/editors/.doom.d
-	url = git@github.com:p2d0/.doom.d
+	url = git@github.com:p-720/.doom.d
 [submodule "configs/polybar/polybar-crypto"]
 	path = configs/polybar/polybar-crypto
 	url = https://github.com/willHol/polybar-crypto.git

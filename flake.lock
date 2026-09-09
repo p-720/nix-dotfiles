@@ -8,13 +8,13 @@
       "locked": {
         "lastModified": 1774290159,
         "narHash": "sha256-K5JFjiRTvcvZiVmPKLMYeW2kUH456V7dq3tCRQ+Vm1c=",
-        "owner": "p2d0",
+        "owner": "p-720",
         "repo": "ai-shell",
         "rev": "2300b5f4f20965aca1a55cbbe8a9a93a4ecad342",
         "type": "github"
       },
       "original": {
-        "owner": "p2d0",
+        "owner": "p-720",
         "repo": "ai-shell",
         "type": "github"
       }
@@ -50,13 +50,13 @@
       "locked": {
         "lastModified": 1777028067,
         "narHash": "sha256-fT990WhIq/vuZQt3wDnALF1V+ohqeEpxaZ20ObwoJEE=",
-        "owner": "p2d0",
+        "owner": "p-720",
         "repo": "appblocker",
         "rev": "9f68ecca88b90906c63db3c81c5a62ef825bebcd",
         "type": "github"
       },
       "original": {
-        "owner": "p2d0",
+        "owner": "p-720",
         "repo": "appblocker",
         "type": "github"
       }
@@ -1494,13 +1494,13 @@
       "locked": {
         "lastModified": 1772186303,
         "narHash": "sha256-XvcYoc5cqBRkWYOk60ziDihqLbmWDW4B6nU4Ku+d6Gg=",
-        "owner": "p2d0",
+        "owner": "p-720",
         "repo": "nanobanana",
         "rev": "49e8c169111d77edc240cdd54d50a1c9316a5d04",
         "type": "github"
       },
       "original": {
-        "owner": "p2d0",
+        "owner": "p-720",
         "repo": "nanobanana",
         "type": "github"
       }
@@ -2123,13 +2123,13 @@
       "locked": {
         "lastModified": 1774285025,
         "narHash": "sha256-JTTQxdVqbctv1YMkiQoWFVIoZxTPgejltbIRQ0/c0Y8=",
-        "owner": "p2d0",
+        "owner": "p-720",
         "repo": "playwright-cli-flake",
         "rev": "61eb11df7ea7e8657559546160f5ee92208e36ee",
         "type": "github"
       },
       "original": {
-        "owner": "p2d0",
+        "owner": "p-720",
         "repo": "playwright-cli-flake",
         "type": "github"
       }
@@ -2164,13 +2164,13 @@
       "locked": {
         "lastModified": 1777450089,
         "narHash": "sha256-vmckwHRncINY95e9KziQycKsocbYjHSfURNQUUaxWV4=",
-        "owner": "p2d0",
+        "owner": "p-720",
         "repo": "todolist",
         "rev": "c9ecf656aec676c631cfff2d9f4aa03543d00a0d",
         "type": "github"
       },
       "original": {
-        "owner": "p2d0",
+        "owner": "p-720",
         "repo": "todolist",
         "type": "github"
       }
@@ -2624,14 +2624,14 @@
         "revCount": 20566,
         "submodules": true,
         "type": "git",
-        "url": "https://github.com/p2d0/tdesktop.git"
+        "url": "https://github.com/p-720/tdesktop.git"
       },
       "original": {
         "allRefs": true,
         "ref": "refs/heads/p2d0_update",
         "submodules": true,
         "type": "git",
-        "url": "https://github.com/p2d0/tdesktop.git"
+        "url": "https://github.com/p-720/tdesktop.git"
       }
     },
     "tinted-foot": {
@@ -2723,15 +2723,15 @@
         "nixpkgs": "nixpkgs_21"
       },
       "locked": {
-        "lastModified": 1780745492,
-        "narHash": "sha256-e43jJgF8rON+yclBeTzm+GAOLXZtE6lIhWWn6B0UTGU=",
-        "owner": "p2d0",
+        "lastModified": 1788448451,
+        "narHash": "sha256-5Fgyn2UA+CdVXWnmVN5Usvn51xCPKhwRvzv5EqFpjJE=",
+        "owner": "p-720",
         "repo": "todolist-web",
-        "rev": "4e1ae9c0e974f48cd626d8550288aed3fb503c41",
+        "rev": "f0337e3b64957fa7cdb45659d15e4039f8aeb340",
         "type": "github"
       },
       "original": {
-        "owner": "p2d0",
+        "owner": "p-720",
         "repo": "todolist-web",
         "type": "github"
       }

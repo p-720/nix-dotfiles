@@ -23,3 +23,5 @@ configs/fcitx5/profile
 meta.db-shm
 meta.db
 meta.db-wal
+cache/
+models-store.json

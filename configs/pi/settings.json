@@ -3,6 +3,11 @@
   "defaultProvider": "qwen38-huge",
   "defaultModel": "qwen3.8-27b",
   "defaultThinkingLevel": "high",
+  "compaction": {
+    "enabled": true,
+    "keepRecentTokens": 8192,
+    "reserveTokens": 8192
+  },
   "packages": [
     "npm:pi-ask-user",
     "npm:pi-mcp-adapter",
@@ -12,7 +17,8 @@
     "npm:@agent-sh/computer-use-linux",
     "git:github.com/DietrichGebert/ponytail",
     "git:github.com/okiess/pi-opencode-go-provider@fix/context-window-merge",
-    "npm:pi-free"
+    "npm:pi-free",
+    "npm:pi-web-access"
   ],
   "hideThinkingBlock": false,
   "theme": "dark"

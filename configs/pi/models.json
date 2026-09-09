@@ -80,7 +80,7 @@
                     "id": "qwen3.8-27b",
                     "name": "Qwen 3.8 27B (CTX=large)",
                     "reasoning": true,
-                    "input": ["text"],
+                    "input": ["text", "image"],
                     "contextWindow": 150000,
                     "maxTokens": 32768
                 }

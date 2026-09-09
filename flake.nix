@@ -21,12 +21,12 @@
   inputs = {
     nixpkgs = { url = "github:nixos/nixpkgs/nixos-26.05"; };
     max-messenger.url = "github:spiage/max-messenger";
-    playwright-cli.url = "github:p2d0/playwright-cli-flake";
+    playwright-cli.url = "github:p-720/playwright-cli-flake";
 
     nixos-unstable.url = "nixpkgs/nixos-unstable";
-    appblocker.url = "github:p2d0/appblocker";
-    nanobanana.url = "github:p2d0/nanobanana";
-    ai-shell.url = "github:p2d0/ai-shell";
+    appblocker.url = "github:p-720/appblocker";
+    nanobanana.url = "github:p-720/nanobanana";
+    ai-shell.url = "github:p-720/ai-shell";
     void-editor.url = "github:bariscodefxy/void-editor-flake";
     home-manager.url = "github:nix-community/home-manager/release-26.05";
     hyprland.url = "github:hyprwm/Hyprland/";
@@ -35,7 +35,7 @@
     # };
     tdesktop = {
       url =
-        "git+https://github.com/p2d0/tdesktop.git?ref=refs/heads/p2d0_update&allRefs=1&submodules=1";
+        "git+https://github.com/p-720/tdesktop.git?ref=refs/heads/p2d0_update&allRefs=1&submodules=1";
     };
 
     quickshell = {
@@ -50,8 +50,8 @@
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
     compfy.url = "github:allusive-dev/compfy";
     spl3g-config.url = "github:spl3g/nixfiles";
-    pomotasker.url = "github:p2d0/todolist";
-    todolist-web.url = "github:p2d0/todolist-web";
+    pomotasker.url = "github:p-720/todolist";
+    todolist-web.url = "github:p-720/todolist-web";
     zen-browser.url = "github:0xc000022070/zen-browser-flake";
     nixpkgs-amnezia.url = "github:averyanalex/nixpkgs/amneziawg";
     # hy3 = {
@@ -128,7 +128,7 @@
               unstable = import nixos-unstable { config = self.config; };
               compfy = compfy.packages.${system}.compfy;
               zen-browser = zen-browser.packages.${system}.default;
-              tdesktop_p2d0 = tdesktop.packages.${system}.default;
+              tdesktop_p-720 = tdesktop.packages.${system}.default;
               playwright-cli = playwright-cli.packages.${system}.default;
               # my = lib.my.mapModules ./pkgs (p:
               #   let eval = builtins.tryEval (self.callPackage p {});

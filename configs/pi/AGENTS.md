@@ -8,7 +8,7 @@
 
 ## MCP Servers
 
-When available, prefer MCP tools over built-in web tools for better results: 
+Prefer MCP tools over built-in web tools for better results: 
 
 - **Exa MCP** (`exa`): Use for web search and content retrieval. Prefer this for finding specific technical documentation, code examples, or recent information.
 - **Jina MCP** (`jina-mcp-server`): Use for reading and summarizing web content. Prefer this when you need to extract or summarize content from a specific URL.
@@ -18,7 +18,8 @@ Use MCPs proactively when the task involves:
 - Fetching content from specific URLs
 - Researching current best practices or recent changes
 
-You'll need first to connect to mcp tools.
+You'll need first to connect to mcp tools BEFORE USING THEM!!!
+`mcp connect jina-mcp-server`
 
 - We're on NixOS
 - YOU CANNOT READ IMAGES.

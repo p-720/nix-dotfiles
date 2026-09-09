@@ -10,6 +10,7 @@ in {
   home.file.".config/mcp/mcp.json".text = lib.generators.toJSON { } {
     mcpServers = {
       exa = { url = "https://mcp.exa.ai/mcp"; };
+      playwright = { command = "playwright-mcp"; };
     } // lib.optionalAttrs (builtins.pathExists jinaApiKeyFile) {
       jina-mcp-server = {
         url = "https://mcp.jina.ai/v1";

@@ -11,7 +11,7 @@ in{
       enable = mkBoolOpt true;
       forgeUrl = mkOpt types.str "https://github.com";
       repoUrl = mkOpt types.str "${cfg.doom.forgeUrl}/doomemacs/doomemacs";
-      configRepoUrl = mkOpt types.str "${cfg.doom.forgeUrl}/p2d0/.doom.d";
+      configRepoUrl = mkOpt types.str "${cfg.doom.forgeUrl}/p-720/.doom.d";
     };
   };
   config = mkIf cfg.enable (lib.my.withHome
