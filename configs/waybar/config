@@ -12,8 +12,8 @@
     ],
     "modules-center": [
       "custom/gcal",
-      "clock",
-      "custom/emacs_todo"
+      "clock"
+      // "custom/emacs_todo"
     ],
     "modules-right": [
       // "custom/humpool",
@@ -43,7 +43,8 @@
     //  "custom/crypto"
     ],
     "modules-center": [
-      "custom/emacs_todo",
+      //"custom/emacs_todo",
+      "custom/gcal",
       "clock"
     ],
     "modules-right": [

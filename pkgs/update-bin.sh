@@ -5,8 +5,13 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 
 bin_file="$(realpath ./osu-lazer-bin.nix)"
 
-# Fetch latest release data
-api_response="$(curl -s "https://api.github.com/repos/ppy/osu/releases?per_page=1")"
+# Fetch latest release data with optional GitHub token authentication
+curl_args=(-s)
+if [[ -n "${GITHUB_TOKEN:-}" ]]; then
+    curl_args+=(-H "Authorization: Bearer ${GITHUB_TOKEN}")
+fi
+
+api_response="$(curl "${curl_args[@]}" "https://api.github.com/repos/ppy/osu/releases?per_page=1")"
 
 # Check if GitHub returned an API error (e.g., rate limit exceeded)
 if echo "$api_response" | jq -e '.message?' >/dev/null 2>&1; then

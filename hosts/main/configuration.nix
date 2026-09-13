@@ -553,7 +553,7 @@
   programs.opengamepadui.args = "--fullscreen";
   # programs.opengamepadui.gamescopeSession.enable = true;
   programs.opengamepadui.extraPackages = [ pkgs.vulkan-tools pkgs.hwdata ];
-  services.sunshine.enable = false;
+  services.sunshine.enable = true;
   services.sunshine.capSysAdmin = true;
   services.sunshine.package = pkgs.sunshine;
   services.sunshine.autoStart = true;
@@ -571,64 +571,73 @@
     # env = {
     #   PATH = "\${PATH}:\${HOME}/.local/bin";
     # };
-    apps = [
-      {
-        name = "OpenGamepadUI";
-        cmd =
-          "${pkgs.opengamepadui}/share/opengamepadui/opengamepad-ui.x86_64 --fullscreen";
-        prep-cmd =
-          [{ do = "${pkgs.hyprland}/bin/hyprctl dispatch workspace 12"; }];
-        exclude-global-prep-cmd = "false";
-        auto-detach = "true";
-      }
-      {
-        name = "Yuzu";
-        cmd =
-          "${pkgs.hyprland}/bin/hyprctl dispatch exec ${pkgs.coreutils}/bin/env QT_QPA_PLATFORM=xcb ${pkgs.appimage-run}/bin/appimage-run /home/andrew/.local/share/lutris/runners/yuzu/yuzu-mainline.AppImage";
-        prep-cmd =
-          [{ do = "${pkgs.hyprland}/bin/hyprctl dispatch workspace 12"; }];
-        exclude-global-prep-cmd = "false";
-        auto-detach = "true";
-      }
-      {
-        name = "All Monitors Desktop";
-        image-path = "/etc/nixos/pkgs/sunshine/desktop-multiple.png";
-        exclude-global-prep-cmd = "false";
-        prep-cmd =
-          [{ do = "${pkgs.hyprland}/bin/hyprctl dispatch workspace 12"; }];
-        auto-detach = "true";
-      }
-      {
-        name = "Desktop";
-        image-path = "desktop.png";
-        exclude-global-prep-cmd = "false";
-        prep-cmd = [
-          { do = "${pkgs.hyprland}/bin/hyprctl dispatch workspace 12"; }
-          {
-            do = "${pkgs.hyprland}/bin/hyprctl dispatch dpms off DP-3";
-            undo = "${pkgs.hyprland}/bin/hyprctl dispatch dpms on DP-3";
-          }
-          {
-            do = "${pkgs.hyprland}/bin/hyprctl dispatch dpms off HDMI-A-1";
-            undo = "${pkgs.hyprland}/bin/hyprctl dispatch dpms on HDMI-A-1";
-          }
-          { do = "${pkgs.hyprland}/bin/hyprctl dispatch pkill emacs"; }
-          { do = "${pkgs.hyprland}/bin/hyprctl dispatch pkill zen"; }
-          { do = "${pkgs.hyprland}/bin/hyprctl dispatch pkill telegram"; }
-        ];
-        auto-detach = "true";
-      }
-      {
-        name = "Steam Big Picture";
-        cmd =
-          "${pkgs.hyprland}/bin/hyprctl dispatch exec steam steam://open/bigpicture";
-        prep-cmd =
-          [{ do = "${pkgs.hyprland}/bin/hyprctl dispatch workspace 12"; }];
-        image-path = "steam.png";
-        exclude-global-prep-cmd = "false";
-        auto-detach = "true";
-      }
-    ];
+    apps = let
+      # each of these is a real script on disk — sunshine never sees a quote
+      wsFocus = n: pkgs.writeShellScript "hypr-focus-ws-${toString n}" ''
+    exec ${pkgs.hyprland}/bin/hyprctl dispatch "hl.dsp.focus({ workspace = ${toString n} })"
+  '';
+
+      dpms = monitor: action: pkgs.writeShellScript "hypr-dpms-${monitor}-${action}" ''
+    exec ${pkgs.hyprland}/bin/hyprctl dispatch "hl.dsp.dpms({ action = \"${action}\", monitor = \"${monitor}\" })"
+  '';
+
+      pkill = name: pkgs.writeShellScript "hypr-pkill-${name}" ''
+    exec ${pkgs.hyprland}/bin/hyprctl dispatch "hl.dsp.exec_cmd(\"pkill ${name}\")"
+  '';
+
+      yuzu = pkgs.writeShellScript "launch-yuzu" ''
+    exec ${pkgs.hyprland}/bin/hyprctl dispatch "hl.dsp.exec_cmd(\"env QT_QPA_PLATFORM=xcb ${pkgs.appimage-run}/bin/appimage-run /home/andrew/.local/share/lutris/runners/yuzu/yuzu-mainline.AppImage\")"
+  '';
+
+      steamBigPicture = pkgs.writeShellScript "launch-steam-bp" ''
+    exec ${pkgs.hyprland}/bin/hyprctl dispatch "hl.dsp.exec_cmd(\"steam steam://open/bigpicture\")"
+  '';
+    in
+      [
+        {
+          name = "OpenGamepadUI";
+          cmd = "${pkgs.opengamepadui}/share/opengamepadui/opengamepad-ui.x86_64 --fullscreen";
+          prep-cmd = [ { do = "${wsFocus 13}"; } ];
+          exclude-global-prep-cmd = "false";
+          auto-detach = "true";
+        }
+        {
+          name = "Yuzu";
+          cmd = "${yuzu}";
+          prep-cmd = [ { do = "${wsFocus 13}"; } ];
+          exclude-global-prep-cmd = "false";
+          auto-detach = "true";
+        }
+        {
+          name = "All Monitors Desktop";
+          image-path = "/etc/nixos/pkgs/sunshine/desktop-multiple.png";
+          exclude-global-prep-cmd = "false";
+          prep-cmd = [ { do = "${wsFocus 13}"; } ];
+          auto-detach = "true";
+        }
+        {
+          name = "Desktop";
+          image-path = "desktop.png";
+          exclude-global-prep-cmd = "false";
+          prep-cmd = [
+            { do = "${wsFocus 13}"; }
+            { do = "${dpms "DP-3" "disable"}"; undo = "${dpms "DP-3" "enable"}"; }
+            { do = "${dpms "HDMI-A-1" "disable"}"; undo = "${dpms "HDMI-A-1" "enable"}"; }
+            { do = "${pkill "emacs"}"; }
+            { do = "${pkill "zen"}"; }
+            { do = "${pkill "telegram"}"; }
+          ];
+          auto-detach = "true";
+        }
+        {
+          name = "Steam Big Picture";
+          cmd = "${steamBigPicture}";
+          prep-cmd = [ { do = "${wsFocus 13}"; } ];
+          image-path = "steam.png";
+          exclude-global-prep-cmd = "false";
+          auto-detach = "true";
+        }
+      ];
   };
   zramSwap.enable = true;
   # zramSwap.memoryPercent = 80;

@@ -8,6 +8,10 @@ hl.config({
         orientation = "right",
     },
     dwindle = {},
+    -- scrolling = {
+    --   column_width = "0.333",
+    --   direction = "left"
+    -- }
 })
 
 -- plugin {

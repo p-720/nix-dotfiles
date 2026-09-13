@@ -4,7 +4,6 @@ local WS_NAME  = "special:emacs"
 local URL_CAL  = "https://calendar.notion.so/"
 local URL_POMO = "https://ug.kyrgyzstan.kg/pomotask/"
 local SHARES   = { cal = 0.2, pomo = 0.2, emacs = 0.6 }
-local INSET    = 2.5
 
 local identity = {} -- [address] = { role = "cal"|"pomo", pid = n }
 
@@ -40,8 +39,16 @@ local function roleOf(w)
     return nil
 end
 
-local function inset(b)
-    return { x = b.x + INSET, y = b.y + INSET, w = b.w - 2 * INSET, h = b.h - 2 * INSET }
+-- Focus the emacs window (role-matched) in this workspace
+local function focusEmacs()
+    local ws = hl.get_workspace(WS_NAME)
+    if not ws then return end
+    for _, w in ipairs(ws:get_windows()) do
+        if roleOf(w) == "emacs" then
+            hl.dispatch(hl.dsp.focus({ window = w }))
+            return
+        end
+    end
 end
 
 hl.layout.register("emacs3", {
@@ -90,8 +97,8 @@ hl.layout.register("emacs3", {
         }
 
         -- Place recognized roles
-        if T.cal then T.cal:place(inset(cols.cal)) end
-        if T.pomo then T.pomo:place(inset(cols.pomo)) end
+        if T.cal then T.cal:place(cols.cal) end
+        if T.pomo then T.pomo:place(cols.pomo) end
 
         -- Stack Emacs + any extra/unrecognized windows in the right column (60% width)
         local right_stack = {}
@@ -102,7 +109,7 @@ hl.layout.register("emacs3", {
             local slice = cols.emacs.h / #right_stack
             local y = cols.emacs.y
             for _, target in ipairs(right_stack) do
-                target:place(inset({ x = cols.emacs.x, y = y, w = cols.emacs.w, h = slice }))
+                target:place({ x = cols.emacs.x, y = y, w = cols.emacs.w, h = slice })
                 y = y + slice
             end
         end
@@ -116,6 +123,12 @@ hl.layout.register("emacs3", {
 -- PWA mode for Firefox
 hl.on("window.open", function(w)
     if not (w.workspace and w.workspace.name == WS_NAME) then return end
+    
+    -- Focus Emacs when a new window opens in this workspace
+    if w.class == "emacs" or w.class == "Emacs" then
+        focusEmacs()
+    end
+
     if w.class ~= "firefox" and w.class ~= "Firefox" then return end
     hl.dispatch(hl.dsp.window.fullscreen_state({ internal = 0, client = 2, window = w }))
 end)
@@ -160,5 +173,7 @@ hl.on("workspace.created", function(ws)
 
     if not has.emacs then
         hl.exec_cmd("emacsclient -c -F '((name . \"emacs-todo\"))'")
+    else
+        focusEmacs()
     end
 end)
