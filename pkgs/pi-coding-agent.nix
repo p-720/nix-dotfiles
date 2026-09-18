@@ -10,6 +10,10 @@
   fd,
   makeBinaryWrapper,
   stdenvNoCC,
+  gcc,
+  gnumake,
+  python3,
+  pkg-config,
 }:
 buildNpmPackage (finalAttrs: {
   pname = "pi-coding-agent";
@@ -100,6 +104,10 @@ buildNpmPackage (finalAttrs: {
       lib.makeBinPath [
         ripgrep
         fd
+        gcc
+        gnumake
+        python3
+        pkg-config
       ]
     } \
       --set-default PI_SKIP_VERSION_CHECK 1 \

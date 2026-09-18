@@ -54,7 +54,10 @@ const ANALYST_SYSTEM =
   "Answer the question exactly and completely: quote exact text, code, values and labels verbatim, " +
   "describe layout and relationships, and say explicitly what is not visible when asked.";
 const SIDE_TIMEOUT_MS = 120_000;
-const SIDE_MAX_TOKENS = 500;
+// Thinking is disabled for the side request (chat_template_kwargs in
+// inspect()), so this caps answer length, not reasoning — 3000 leaves
+// room for long verbatim quotes (screenshots, logs, tables).
+const SIDE_MAX_TOKENS = 3000;
 
 /** Same provider pi uses for the main model — single source of truth is
  *  ~/.pi/agent/models.json (env vars override). */
@@ -130,6 +133,9 @@ async function inspect(img: ImagePart, question: string): Promise<string> {
         },
       ],
       max_tokens: SIDE_MAX_TOKENS,
+      // Qwen3 chat template: without this, the model spends the whole
+      // max_tokens budget on `reasoning` and returns content: null.
+      chat_template_kwargs: { enable_thinking: false },
       temperature: 0.2,
     }),
   });

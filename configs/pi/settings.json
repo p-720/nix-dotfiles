@@ -14,11 +14,11 @@
     "npm:@firstpick/pi-extension-nixos-wiki-local",
     "npm:@plannotator/pi-extension",
     "npm:pi-caveman",
-    "npm:@agent-sh/computer-use-linux",
     "git:github.com/DietrichGebert/ponytail",
     "git:github.com/okiess/pi-opencode-go-provider@fix/context-window-merge",
     "npm:pi-free",
-    "npm:pi-web-access"
+    "npm:pi-web-access",
+    "https://github.com/srossitto79/pi-gvs5h.git"
   ],
   "hideThinkingBlock": false,
   "theme": "dark"

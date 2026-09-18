@@ -18,6 +18,9 @@ hl.config({
 hl.device({
     name = "pen-passthrough",
     output = test,
+    -- region_size = { 2000, 1200},
+    -- active_area_size = { 306, 202}
+    -- active_area_size = { 275, 192 },
     active_area_size = { 275, 192 },
 })
 
@@ -45,4 +48,10 @@ hl.device({
 hl.device({
     name = "touch-passthrough-1",
     output = test,
+    transform = 0
+})
+
+hl.device({
+    name = "calibrated-touch-passthrough-1",
+    output = test
 })

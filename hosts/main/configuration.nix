@@ -151,8 +151,13 @@
     KERNEL=="hiddev*", MODE="0666"
     KERNEL=="ttyUSB*", MODE="0666"
 
-    ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="Touch passthrough", ATTRS{capabilities/abs}=="670800001000003", ATTRS{id/vendor}=="beef", ATTRS{id/product}=="dead", ENV{LIBINPUT_CALIBRATION_MATRIX}="2.5 0 0 0 2 0"
+ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="Touch passthrough", ATTRS{capabilities/abs}=="670800001000003", ATTRS{id/vendor}=="beef", ATTRS{id/product}=="dead", ENV{ID_INPUT_MOUSE}="", ENV{LIBINPUT_CALIBRATION_MATRIX}="2.5 0 0 0 2 0"
   '';
+  services.udev.extraHwdb = ''
+  evdev:input:b0003vXXXXpYYYY*
+   EVDEV_ABS_00=0:6727:32:0
+   EVDEV_ABS_01=0:3677:32:0
+'';
 
   programs.droidcam.enable = true;
   # programs.sway = {
@@ -342,7 +347,7 @@
       systemCronJobs = [
         # "*/30 11-21 * * * andrew DBUS_SESSION_BUS_ADDRESS='unix:path=/run/user/1000/bus' /run/current-system/sw/bin/notify-send 'Check daily'"
         "00 19 * * * andrew darkman set dark"
-        "* * * * * andrew env > ~/cronenv"
+        # "* * * * * andrew env > ~/cronenv"
 
         # "00 21 * * * andrew /etc/nixos/shutdown.sh"
         # "15 21 * * * andrew /etc/nixos/shutdown.sh"
@@ -549,103 +554,16 @@
   # modules.timed-lock.enable = false;
   # modules.timed-lock.time = "23:00:00";
   modules.vm.enable = false;
-  programs.opengamepadui.enable = true;
-  programs.opengamepadui.args = "--fullscreen";
-  # programs.opengamepadui.gamescopeSession.enable = true;
-  programs.opengamepadui.extraPackages = [ pkgs.vulkan-tools pkgs.hwdata ];
-  services.sunshine.enable = true;
-  services.sunshine.capSysAdmin = true;
-  services.sunshine.package = pkgs.sunshine;
-  services.sunshine.autoStart = true;
-  # services.sunshine.openFirewall = true;
-  services.sunshine.settings = {
-    upnp = "enabled";
-    output_name = 2;
-    capture = "kms";
-    encoder = "nvenc";
-    # nvenc_twopass = "disabled";
-    # min_log_level = "Debug";
-  };
-
-  services.sunshine.applications = {
-    # env = {
-    #   PATH = "\${PATH}:\${HOME}/.local/bin";
-    # };
-    apps = let
-      # each of these is a real script on disk — sunshine never sees a quote
-      wsFocus = n: pkgs.writeShellScript "hypr-focus-ws-${toString n}" ''
-    exec ${pkgs.hyprland}/bin/hyprctl dispatch "hl.dsp.focus({ workspace = ${toString n} })"
-  '';
-
-      dpms = monitor: action: pkgs.writeShellScript "hypr-dpms-${monitor}-${action}" ''
-    exec ${pkgs.hyprland}/bin/hyprctl dispatch "hl.dsp.dpms({ action = \"${action}\", monitor = \"${monitor}\" })"
-  '';
-
-      pkill = name: pkgs.writeShellScript "hypr-pkill-${name}" ''
-    exec ${pkgs.hyprland}/bin/hyprctl dispatch "hl.dsp.exec_cmd(\"pkill ${name}\")"
-  '';
-
-      yuzu = pkgs.writeShellScript "launch-yuzu" ''
-    exec ${pkgs.hyprland}/bin/hyprctl dispatch "hl.dsp.exec_cmd(\"env QT_QPA_PLATFORM=xcb ${pkgs.appimage-run}/bin/appimage-run /home/andrew/.local/share/lutris/runners/yuzu/yuzu-mainline.AppImage\")"
-  '';
-
-      steamBigPicture = pkgs.writeShellScript "launch-steam-bp" ''
-    exec ${pkgs.hyprland}/bin/hyprctl dispatch "hl.dsp.exec_cmd(\"steam steam://open/bigpicture\")"
-  '';
-    in
-      [
-        {
-          name = "OpenGamepadUI";
-          cmd = "${pkgs.opengamepadui}/share/opengamepadui/opengamepad-ui.x86_64 --fullscreen";
-          prep-cmd = [ { do = "${wsFocus 13}"; } ];
-          exclude-global-prep-cmd = "false";
-          auto-detach = "true";
-        }
-        {
-          name = "Yuzu";
-          cmd = "${yuzu}";
-          prep-cmd = [ { do = "${wsFocus 13}"; } ];
-          exclude-global-prep-cmd = "false";
-          auto-detach = "true";
-        }
-        {
-          name = "All Monitors Desktop";
-          image-path = "/etc/nixos/pkgs/sunshine/desktop-multiple.png";
-          exclude-global-prep-cmd = "false";
-          prep-cmd = [ { do = "${wsFocus 13}"; } ];
-          auto-detach = "true";
-        }
-        {
-          name = "Desktop";
-          image-path = "desktop.png";
-          exclude-global-prep-cmd = "false";
-          prep-cmd = [
-            { do = "${wsFocus 13}"; }
-            { do = "${dpms "DP-3" "disable"}"; undo = "${dpms "DP-3" "enable"}"; }
-            { do = "${dpms "HDMI-A-1" "disable"}"; undo = "${dpms "HDMI-A-1" "enable"}"; }
-            { do = "${pkill "emacs"}"; }
-            { do = "${pkill "zen"}"; }
-            { do = "${pkill "telegram"}"; }
-          ];
-          auto-detach = "true";
-        }
-        {
-          name = "Steam Big Picture";
-          cmd = "${steamBigPicture}";
-          prep-cmd = [ { do = "${wsFocus 13}"; } ];
-          image-path = "steam.png";
-          exclude-global-prep-cmd = "false";
-          auto-detach = "true";
-        }
-      ];
-  };
   zramSwap.enable = true;
+  modules.sunshine.enable = true;
   # zramSwap.memoryPercent = 80;
   # zramSwap.writebackDevice = "/dev/sdb1";
 
   #  environment.extraInit = ''
   #xset dpms 15 15 15
   #'';
+
+  programs.ydotool.enable = true;
 
   # environment.sessionVariables.NAUTILUS_EXTENSION_DIR = "${config.system.path}/lib/nautilus/extensions-4";
   modules.taffybar.enable = false;
@@ -673,6 +591,7 @@
       ps.pygetwindow
       ps.matplotlib
     ]))
+    my.computer-use-linux
 
     # my.hbctool
     oscar
