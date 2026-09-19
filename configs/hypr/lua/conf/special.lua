@@ -40,7 +40,7 @@ hl.workspace_rule({ workspace = "special:grok", gaps_out = 50, gaps_in = 10, on_
 hl.workspace_rule({ workspace = "special:otherai", gaps_out = 50, gaps_in = 15, on_created_empty = "firefox-pwa https://claude.ai/" })
 hl.workspace_rule({ workspace = "special:deepseek", gaps_out = 50, gaps_in = 10, on_created_empty = "firefox-pwa https://chat.deepseek.com/" })
 hl.workspace_rule({ workspace = "special:gemini", gaps_out = 50, gaps_in = 10, on_created_empty = "firefox --new-window \"https://gemini.google.com\" &" })
-hl.workspace_rule({ workspace = "special:emacs", gaps_in = 2.5, gaps_out = { top = 25, right = 25, bottom = 25, left = 50 }, layout = "lua:emacs3"})
+hl.workspace_rule({ workspace = "special:emacs", gaps_in = 2.5, gaps_out = { top = 25, right = 25, bottom = 25, left = 50 }, layout = "master", layout_opts = {orientation = "right"}, on_created_empty = "/etc/nixos/configs/hypr/workspace-emacs.sh",})
 hl.workspace_rule({ workspace = "special:speedcrunch", gaps_out = { top = 200, right = 50, bottom = 300, left = 1500 }, on_created_empty = "speedcrunch" })
 hl.workspace_rule({ workspace = "m[" .. monitor_1 .. "]s[true]n[e:speedcrunch]", gaps_out = { top = 250, right = 25, bottom = 250, left = 2090 } })
 hl.workspace_rule({ workspace = "m[" .. monitor_2 .. "]s[true]n[e:speedcrunch]", gaps_out = { top = 250, right = 25, bottom = 250, left = 1450 } })
