@@ -828,7 +828,7 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
     paprefs
     # shotcut
     # darktable
-    anki-bin
+    unstable.anki-bin
     # unstable.antigravity
     my.antigravity-manager
     compfy
@@ -927,7 +927,7 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
     # libreoffice
     pkgs.onlyoffice-desktopeditors
     koreader
-    stremio-linux-shell
+    unstable.stremio-linux-shell
     # vlc
     gsettings-desktop-schemas
     wineWowPackages.stable

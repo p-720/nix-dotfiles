@@ -13,7 +13,7 @@ hl.layout.register("ff-tg", {
                 local class = w.class or ""
                 if not firefox and class:find("firefox") then
                     firefox = target
-                elseif not telegram and class:find("org%.telegram%.desktop") then
+                elseif not telegram and class:find("TelegramDesktop") then
                     telegram = target
                 else
                     table.insert(others, target)
@@ -65,5 +65,5 @@ hl.on("workspace.active", function(ws)
     end
 
     if not has_ff then hl.exec_cmd("firefox-pwa " .. FIREFOX_URL) end
-    if not has_tg then hl.exec_cmd("Telegram") end
+    if not has_tg then hl.exec_cmd("env GDK_BACKEND=x11 QT_QPA_PLATFORM=xcb WEBKIT_DISABLE_DMABUF_RENDERER=1 Telegram") end
 end)
