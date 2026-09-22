@@ -927,7 +927,7 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
     # libreoffice
     pkgs.onlyoffice-desktopeditors
     koreader
-    unstable.stremio-linux-shell
+    unstable.stremio-service
     # vlc
     gsettings-desktop-schemas
     wineWowPackages.stable
