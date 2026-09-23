@@ -18,6 +18,7 @@
     "modules-right": [
       // "custom/humpool",
       // "custom/weather",
+      "custom/pomotask",
       "custom/polypomo",
       "custom/weather",
       "pulseaudio/slider",

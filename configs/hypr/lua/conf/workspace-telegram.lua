@@ -44,11 +44,11 @@ end
 
 -- Split the workspace area into the three fixed columns.
 local function columnsFor(area)
-    local notion_w = area.w * 0.25
-    local pomo_w   = area.w * 0.2
+    local notion_w = area.w * 0.2
+    local pomo_w   = area.w * 0.22
     return {
-        pomo   = { x = area.x, y = area.y, w = pomo_w, h = area.h },
-        notion = { x = area.x + pomo_w, y = area.y, w = notion_w, h = area.h },
+        notion   = { x = area.x, y = area.y, w = pomo_w, h = area.h },
+        pomo = { x = area.x + pomo_w, y = area.y, w = notion_w, h = area.h },
         tg     = { x = area.x + pomo_w + notion_w, y = area.y, w = area.w - pomo_w - notion_w, h = area.h },
     }
 end

@@ -43,6 +43,8 @@ def format_timer(state):
     mode = state.get("mode", "stopwatch")
     start_time = state.get("startTime")
     elapsed_before = state.get("elapsedBefore", 0)
+    # Quick-task timers carry a name (habit timers: no name, unchanged output)
+    prefix = f"{state['name']} " if state.get("name") else ""
 
     if start_time:
         elapsed = int((time.time() * 1000 - start_time) / 1000) + elapsed_before
@@ -53,11 +55,11 @@ def format_timer(state):
         remaining = max(0, POMODORO_DURATION - elapsed)
         mins = remaining // 60
         secs = remaining % 60
-        return f"\U0001F345 {mins:02d}:{secs:02d}"
+        return f"{prefix}\U0001F345 {mins:02d}:{secs:02d}"
     else:
         mins = elapsed // 60
         secs = elapsed % 60
-        return f"\U000023F0 {mins}m {secs}s"
+        return f"{prefix}\U000023F0 {mins}m {secs}s"
 
 
 def tail_mode():
@@ -75,7 +77,10 @@ def tail_mode():
 
     def ticker():
         while running:
-            print_state()
+            with state_lock:
+                is_running = current_state.get("running", False)
+            if is_running:
+                print_state()
             time.sleep(1)
 
     def on_message(_, message):
@@ -91,19 +96,18 @@ def tail_mode():
             print_state()
 
     def on_error(_, error):
+        with state_lock:
+            current_state.clear()
         print("", flush=True)
 
     def on_close(_, code, reason):
-        # Keep stale state visible until new data arrives
-        pass
-
-    def on_open(_):
-        _.send(json.dumps({"type": "timer:query"}))
+        with state_lock:
+            current_state.clear()
+        print("", flush=True)
 
     def connect():
         ws_ref[0] = websocket.WebSocketApp(
             WS_URL,
-            on_open=on_open,
             on_message=on_message,
             on_error=on_error,
             on_close=on_close,
@@ -127,7 +131,9 @@ def tail_mode():
         try:
             connect()
         except Exception:
-            pass
+            with state_lock:
+                current_state.clear()
+            print("", flush=True)
         time.sleep(3)
 
 
