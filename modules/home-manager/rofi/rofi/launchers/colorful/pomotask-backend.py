@@ -173,7 +173,8 @@ def fetch_timer_habits(timeout=NET_TIMEOUT):
     out = {}
     for g in groups:
         for h in g.get("habits", []):
-            if h.get("habit_type") == "timer" and not h.get("archived_at") and h.get("description"):
+            # any habit type can be timed (duration-only for non-timer types)
+            if not h.get("archived_at") and h.get("description"):
                 out.setdefault(h["description"], h["id"])
     return out
 
