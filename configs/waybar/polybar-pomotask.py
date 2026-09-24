@@ -17,10 +17,12 @@ Add to polybar config:
 """
 
 import json
+import os
 import signal
 import sys
 import threading
 import time
+import urllib.request
 
 try:
     import websocket
@@ -32,7 +34,62 @@ except ImportError:
     sys.exit(1)
 
 WS_URL = "wss://ug.kyrgyzstan.kg/pomotask/ws"
+API_URL = "https://ug.kyrgyzstan.kg/pomotask/api/habits"
+# API key file (issued in the web app's calendar page -> API keys). The raw
+# key lives in one line, Dropbox-synced across machines.
+KEY_FILE = os.path.expanduser("~/Dropbox/pomotask")
 POMODORO_DURATION = 1500  # 25 minutes
+TITLE_TTL = 60  # seconds between habit-title refreshes
+
+
+def load_key():
+    try:
+        key = open(KEY_FILE).read().strip()
+    except OSError as e:
+        print(f"Error: cannot read API key file {KEY_FILE}: {e}", file=sys.stderr)
+        print("Create a key in the web app (calendar page -> API keys) and save it there.", file=sys.stderr)
+        sys.exit(1)
+    if not key.startswith("pomo_"):
+        print(f"Error: {KEY_FILE} does not look like an API key (expected pomo_...)", file=sys.stderr)
+        sys.exit(1)
+    return key
+
+
+KEY = load_key()
+
+_habit_titles = {}  # str(habit_id) -> description
+_habit_fetched_at = 0.0
+_fetch_lock = threading.Lock()
+
+
+def refresh_titles():
+    """Fetch habit titles (id -> description) from the API if stale."""
+    global _habit_fetched_at
+    with _fetch_lock:
+        if time.time() - _habit_fetched_at < TITLE_TTL:
+            return
+        try:
+            req = urllib.request.Request(API_URL, headers={"Authorization": f"Bearer {KEY}"})
+            with urllib.request.urlopen(req, timeout=5) as r:
+                tree = json.load(r)
+        except Exception:
+            return  # keep last known titles on failure
+        _habit_titles.clear()
+        for group in tree:
+            for h in group.get("habits", []):
+                _habit_titles[str(h.get("id"))] = h.get("description") or ""
+        _habit_fetched_at = time.time()
+
+
+def task_title(state):
+    """Title of the running task: quick-task name, else habit description."""
+    if state.get("name"):
+        return state["name"]
+    hid = state.get("activeHabitId")
+    if hid is None:
+        return ""
+    refresh_titles()
+    return _habit_titles.get(str(hid), "")
 
 
 def format_timer(state):
@@ -43,8 +100,9 @@ def format_timer(state):
     mode = state.get("mode", "stopwatch")
     start_time = state.get("startTime")
     elapsed_before = state.get("elapsedBefore", 0)
-    # Quick-task timers carry a name (habit timers: no name, unchanged output)
-    prefix = f"{state['name']} " if state.get("name") else ""
+    # Title of the running task: quick-task name, else habit description
+    title = task_title(state)
+    prefix = f"{title} " if title else ""
 
     if start_time:
         elapsed = int((time.time() * 1000 - start_time) / 1000) + elapsed_before
@@ -107,7 +165,7 @@ def tail_mode():
 
     def connect():
         ws_ref[0] = websocket.WebSocketApp(
-            WS_URL,
+            f"{WS_URL}?key={KEY}",
             on_message=on_message,
             on_error=on_error,
             on_close=on_close,
@@ -140,7 +198,7 @@ def tail_mode():
 def stop_mode():
     """Send stop signal via WebSocket."""
     try:
-        ws = websocket.create_connection(WS_URL)
+        ws = websocket.create_connection(f"{WS_URL}?key={KEY}")
         ws.send(json.dumps({"type": "timer:stop"}))
         ws.close()
     except Exception as e:

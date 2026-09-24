@@ -8,7 +8,7 @@
 #
 # Backend: pomotask-backend.py (rofi script mode; ROFI_RETV 1=match 2=custom).
 
-theme="style_7"
+theme="style_10"
 dir="$HOME/.config/rofi/launchers/colorful"
 
 # colors (same palette as launcher.sh)
@@ -19,7 +19,7 @@ SELECT="#101010ff"
 
 COLORS=('#EC7875' '#61C766' '#FDD835' '#42A5F5' '#BA68C8' '#4DD0E1' '#00B19F' \
 	'#FBC02D' '#E57C46' '#AC8476' '#6D8895' '#EC407A' '#B9C244' '#6C77BB')
-ACCENT="${COLORS[5]}ff"
+ACCENT="${COLORS[8]}ff"
 
 cat > $dir/colors.rasi <<- EOF
 	/* colors */

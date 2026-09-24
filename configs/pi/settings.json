@@ -13,12 +13,12 @@
     "npm:pi-mcp-adapter",
     "npm:@firstpick/pi-extension-nixos-wiki-local",
     "npm:@plannotator/pi-extension",
-    "npm:pi-caveman",
     "git:github.com/DietrichGebert/ponytail",
     "git:github.com/okiess/pi-opencode-go-provider@fix/context-window-merge",
     "npm:pi-free",
     "npm:pi-web-access",
-    "https://github.com/srossitto79/pi-gvs5h.git"
+    "https://github.com/srossitto79/pi-gvs5h.git",
+    "npm:pi-vigilant"
   ],
   "hideThinkingBlock": false,
   "theme": "dark"

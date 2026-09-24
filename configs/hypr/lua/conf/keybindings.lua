@@ -1,5 +1,6 @@
 
 local menu = "~/.config/rofi/launchers/colorful/launcher.sh"
+
 local terminal = "foot"
 local fileManager = "dolphin"
 mainMod = "SUPER"
@@ -14,7 +15,8 @@ hl.bind(mainMod .. " + ALT + b", hl.dsp.exec_cmd("systemctl --user restart wayba
 hl.bind(mainMod .. " + E", hl.dsp.exec_cmd(fileManager))
 hl.bind(mainMod .. " + t", hl.dsp.window.float())
 hl.bind(mainMod .. " + d", hl.dsp.exec_cmd(menu))
-hl.bind(mainMod .. " + P", hl.dsp.window.pseudo())
+hl.bind(mainMod .. " + P", hl.dsp.exec_cmd("~/.config/rofi/launchers/colorful/pomotask.sh"))
+-- hl.bind(mainMod .. " + P", hl.dsp.window.pseudo())
 hl.bind(mainMod .. " + bracketright", hl.dsp.exec_cmd("~/.config/polybar/light_control.sh"))
 
 -- Screenshots and recording

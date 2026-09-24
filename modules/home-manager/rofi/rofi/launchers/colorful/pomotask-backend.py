@@ -2,6 +2,10 @@
 """PomoTask rofi backend (rofi script mode). Stdlib only — no nix-shell,
 no pip deps, starts in ~50ms.
 
+Auth: the server requires an API key — read from ~/Dropbox/pomotask
+(pomo_...), sent as ?key= on the WS and Authorization: Bearer on HTTP.
+Set POMOTASK_KEY_FILE / POMOTASK_BASE to override (local testing).
+
 Invocations:
   ROFI_RETV=0           -> print the list (stop entry + active timer habits)
   ROFI_RETV=1 $1        -> a listed entry was selected
@@ -28,14 +32,40 @@ import ssl
 import sys
 import time
 import urllib.request
-from urllib.parse import urlparse
+from urllib.parse import urlparse, quote
 
-BASE = "https://ug.kyrgyzstan.kg/pomotask"
-WS_URL = "wss://ug.kyrgyzstan.kg/pomotask/ws"
+BASE = os.environ.get("POMOTASK_BASE", "https://ug.kyrgyzstan.kg/pomotask").rstrip("/")
+KEY_FILE = os.environ.get("POMOTASK_KEY_FILE", os.path.expanduser("~/Dropbox/pomotask"))
 DRY = os.environ.get("POMOTASK_ROFI_DRY") == "1"
 CACHE_TTL = 600  # s
 NET_TIMEOUT = 2.5
 STOP_PREFIX = "\u23f9 "  # ⏹
+
+
+def load_key():
+    try:
+        with open(KEY_FILE) as f:
+            k = f.read().strip()
+            return k if k.startswith("pomo_") else None
+    except OSError:
+        return None
+
+
+KEY = load_key()
+
+
+def _ws_url():
+    # BASE may be http(s):// — map to ws(s):// so the handshake lands on
+    # 443 with TLS, not port 80 (nginx 301s that to https forever).
+    p = urlparse(BASE)
+    scheme = "wss" if p.scheme == "https" else "ws"
+    url = f"{scheme}://{p.netloc}{p.path}/ws"
+    if KEY:
+        url += "?key=" + quote(KEY, safe="")
+    return url
+
+
+WS_URL = _ws_url()
 
 
 # --- minimal one-shot RFC6455 client (stdlib): enough for one send or one reply ---
@@ -91,11 +121,17 @@ def _ws_frame_recv(sock):
 
 def _ws_one(url, send_payload=None, want_reply=False, timeout=NET_TIMEOUT):
     p = urlparse(url)
-    host, path, port = p.hostname, p.path or "/", p.port or 443
+    host = p.hostname
+    path = p.path or "/"
+    port = p.port or (443 if p.scheme == "wss" else 80)
+    if p.query:
+        path += "?" + p.query
     key = base64.b64encode(os.urandom(16)).decode()
-    ctx = ssl.create_default_context()
     with socket.create_connection((host, port), timeout=timeout) as sock:
-        s = ctx.wrap_socket(sock, server_hostname=host)
+        s = sock
+        if p.scheme == "wss":
+            ctx = ssl.create_default_context()
+            s = ctx.wrap_socket(sock, server_hostname=host)
         s.settimeout(timeout)
         s.sendall(
             (
@@ -119,11 +155,18 @@ def _ws_one(url, send_payload=None, want_reply=False, timeout=NET_TIMEOUT):
         return None
 
 
-def send_ws(payload):
+def send_ws(payload, retries=2):
     if DRY:
         print("[dry] ws:", json.dumps(payload))
         return
-    _ws_one(WS_URL, send_payload=json.dumps(payload), timeout=3)
+    for attempt in range(retries):
+        try:
+            _ws_one(WS_URL, send_payload=json.dumps(payload), timeout=3)
+            return
+        except Exception as e:
+            if attempt + 1 == retries:
+                raise
+            time.sleep(1)  # the prod nginx intermittently 301s mid-reload
 
 
 def probe_state(timeout=NET_TIMEOUT):
@@ -131,7 +174,10 @@ def probe_state(timeout=NET_TIMEOUT):
     try:
         raw = _ws_one(WS_URL, want_reply=True, timeout=timeout)
     except Exception:
-        return None
+        try:
+            raw = _ws_one(WS_URL, want_reply=True, timeout=timeout)
+        except Exception:
+            return None
     if raw is None:
         return None
     try:
@@ -168,7 +214,8 @@ def save_cache(habits, state):
 
 def fetch_timer_habits(timeout=NET_TIMEOUT):
     """Return {description: habit_id} for active (non-archived) timer habits."""
-    with urllib.request.urlopen(BASE + "/api/habits", timeout=timeout) as r:
+    headers = {"Authorization": "Bearer " + KEY} if KEY else {}
+    with urllib.request.urlopen(urllib.request.Request(BASE + "/api/habits", headers=headers), timeout=timeout) as r:
         groups = json.load(r)
     out = {}
     for g in groups:
@@ -186,10 +233,13 @@ def post_calendar(habit, event, duration_seconds=None):
     if DRY:
         print("[dry] calendar:", json.dumps(body))
         return
+    headers = {"Content-Type": "application/json"}
+    if KEY:
+        headers["Authorization"] = "Bearer " + KEY
     req = urllib.request.Request(
         BASE + "/api/calendar?action=timer",
         data=json.dumps(body).encode(),
-        headers={"Content-Type": "application/json"},
+        headers=headers,
         method="POST",
     )
     urllib.request.urlopen(req, timeout=3).read()
