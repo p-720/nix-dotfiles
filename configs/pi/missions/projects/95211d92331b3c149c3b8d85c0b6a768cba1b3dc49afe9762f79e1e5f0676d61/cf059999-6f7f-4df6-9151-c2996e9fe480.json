@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "id": "cf059999-6f7f-4df6-9151-c2996e9fe480",
+  "title": "[prompt redacted]",
+  "objective": "[prompt redacted]",
+  "status": "completed",
+  "createdAt": "2026-09-25T08:17:02.653Z",
+  "updatedAt": "2026-09-25T08:17:21.115Z",
+  "runs": [
+    {
+      "runId": "f4e0a1de-06cd-4ff7-b4d5-e72d337f63d0",
+      "mode": "single",
+      "agent": "delegate",
+      "status": "completed",
+      "startedAt": "2026-09-25T08:17:21.114Z",
+      "completedAt": "2026-09-25T08:17:21.114Z",
+      "usage": {
+        "tokens": 4641
+      }
+    }
+  ],
+  "workflowChildren": [],
+  "decisions": [],
+  "artifacts": [
+    {
+      "kind": "output",
+      "path": "/home/andrew/.pi/agent/sessions/--etc-nixos-configs-pi--/subagent-artifacts/f4e0a1de-06cd-4ff7-b4d5-e72d337f63d0_delegate_0_output.md"
+    },
+    {
+      "kind": "other",
+      "path": "/home/andrew/.pi/agent/sessions/--etc-nixos-configs-pi--/subagent-artifacts/f4e0a1de-06cd-4ff7-b4d5-e72d337f63d0_delegate_0_transcript.jsonl",
+      "description": "Child transcript"
+    }
+  ],
+  "receipts": [],
+  "cwd": "/etc/nixos/configs/pi",
+  "ownerSessionId": "/home/andrew/.pi/agent/sessions/--etc-nixos-configs-pi--/2026-09-25T08-16-43-348Z_01a0d7a3-5f54-726a-85c8-ce7e8912e035.jsonl",
+  "summary": "Run fan-out: 1/64 used, 63 remaining\n\n\nsubagent-ok\n\n```acceptance-report\n{\n  \"criteriaSatisfied\": [\n    {\n      \"id\": \"criterion-1\",\n      \"status\": \"satisfied\",\n      \"evidence\": \"Replied with the requested string 'subagent-ok' as the message body; the fenced acceptance report below is appended only because the attested acceptance contract requires a structured report at completion.\"\n    }\n  ],\n  \"changedFiles\": [],\n  \"testsAddedOrUpdated\": [],\n  \"commandsRun\": [],\n  \"validationOutput\": [\n    \"Smoke test: no files inspected or modified; response payload is exactly 'subagent-ok'.\"\n  ],\n  \"residualRisks\": [\n    \"Strict checkers expecting a reply of 'subagent-ok' and literally nothing else will see the trailing acceptance-report block; per the attested contract, the report must accompany completion.\"\n  ],\n  \"noStagedFiles\": true,\n  \"diffSummary\": \"No changes; smoke test only.\"\n}\n```\n\nmanual-notes: Task was a pure smoke test — no tool use, file edits, or commands needed. The only deviation from \"exactly subagent-ok and nothing else\" is the mandatory acceptance-report block, which the harness requires for attested completion.",
+  "acceptance": {
+    "status": "attested",
+    "evidenceStatus": "attested",
+    "explicit": false,
+    "effectiveAcceptance": {
+      "level": "attested",
+      "explicit": false,
+      "inferredReason": [
+        "default lightweight attestation"
+      ],
+      "criteria": [
+        {
+          "id": "criterion-1",
+          "must": "Return a concise result and residual risks when applicable",
+          "evidence": [
+            "manual-notes",
+            "residual-risks"
+          ],
+          "severity": "required"
+        }
+      ],
+      "evidence": [
+        "manual-notes",
+        "residual-risks"
+      ],
+      "verify": [],
+      "stopRules": []
+    },
+    "inferredReason": [
+      "default lightweight attestation"
+    ],
+    "criteria": [
+      {
+        "id": "criterion-1",
+        "must": "Return a concise result and residual risks when applicable",
+        "evidence": [
+          "manual-notes",
+          "residual-risks"
+        ],
+        "severity": "required"
+      }
+    ],
+    "runtimeChecks": [],
+    "verifyRuns": [],
+    "childReport": {
+      "criteriaSatisfied": [
+        {
+          "id": "criterion-1",
+          "status": "satisfied",
+          "evidence": "Replied with the requested string 'subagent-ok' as the message body; the fenced acceptance report below is appended only because the attested acceptance contract requires a structured report at completion."
+        }
+      ],
+      "changedFiles": [],
+      "testsAddedOrUpdated": [],
+      "commandsRun": [],
+      "validationOutput": [
+        "Smoke test: no files inspected or modified; response payload is exactly 'subagent-ok'."
+      ],
+      "residualRisks": [
+        "Strict checkers expecting a reply of 'subagent-ok' and literally nothing else will see the trailing acceptance-report block; per the attested contract, the report must accompany completion."
+      ],
+      "noStagedFiles": true,
+      "diffSummary": "No changes; smoke test only."
+    }
+  }
+}

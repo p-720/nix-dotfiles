@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "missionId": "cf059999-6f7f-4df6-9151-c2996e9fe480",
+  "projectRoot": "/etc/nixos/configs/pi",
+  "recordPath": "/home/andrew/.pi/agent/missions/projects/95211d92331b3c149c3b8d85c0b6a768cba1b3dc49afe9762f79e1e5f0676d61/cf059999-6f7f-4df6-9151-c2996e9fe480.json",
+  "title": "[prompt redacted]",
+  "status": "completed",
+  "updatedAt": "2026-09-25T08:17:21.115Z",
+  "lastRunId": "f4e0a1de-06cd-4ff7-b4d5-e72d337f63d0"
+}

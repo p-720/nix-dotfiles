@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "id": "12970ac2-7aa2-4c54-afe2-6b1b0ff291bc",
+  "title": "[prompt redacted]",
+  "objective": "[prompt redacted]",
+  "status": "completed",
+  "createdAt": "2026-09-25T08:31:44.617Z",
+  "updatedAt": "2026-09-25T08:54:43.346Z",
+  "runs": [
+    {
+      "runId": "53727bef-a095-4941-b9f4-61867d605fc1",
+      "mode": "single",
+      "asyncDir": "/tmp/pi-subagents-uid-1000/async-subagent-runs/53727bef-a095-4941-b9f4-61867d605fc1",
+      "status": "complete",
+      "startedAt": "2026-09-25T08:31:44.642Z",
+      "completedAt": "2026-09-25T08:54:43.346Z",
+      "usage": {
+        "tokens": 224679
+      }
+    }
+  ],
+  "workflowChildren": [],
+  "decisions": [],
+  "artifacts": [
+    {
+      "kind": "status",
+      "path": "/tmp/pi-subagents-uid-1000/async-subagent-runs/53727bef-a095-4941-b9f4-61867d605fc1/status.json"
+    },
+    {
+      "kind": "other",
+      "path": "/tmp/pi-subagents-uid-1000/async-subagent-runs/53727bef-a095-4941-b9f4-61867d605fc1/events.jsonl",
+      "description": "Lifecycle events"
+    },
+    {
+      "kind": "output",
+      "path": "/home/andrew/.pi/agent/sessions/--mnt-md127-mosusu--/subagent-artifacts/53727bef-a095-4941-b9f4-61867d605fc1_worker_output.md"
+    }
+  ],
+  "receipts": [],
+  "cwd": "/mnt/md127/mosusu",
+  "ownerSessionId": "/home/andrew/.pi/agent/sessions/--mnt-md127-mosusu--/2026-09-25T08-18-37-556Z_01a0d7a5-1d74-7511-89c8-86e03f99c8ed.jsonl",
+  "summary": "worker:\n\n\n**Quality pass complete. No edits made.**\n\n## confirmed\n- **(a) Completion both directions.** `MaxHits` (JudgementProcessor.cs:32, private set) is set via `PlaybackInternals.MaxHits` (line 308) — after the bump `JudgedHits == MaxHits` holds by construction, so `HasCompleted` (JudgementProcessor.cs:207) can only be gated on `lastAppliedResult.TimeAbsolute < Clock.CurrentTime`; the processor sits inside the FSC subtree (Player.cs:468, clock inherited) so the next Update after the bump satisfies it. Verified in runtime logs: live `judged=4 max=3 → bumping MaxHits 3 -> 4` → results screen shown; replay-watch `hasSeeked=False replay=True judged=9 max=10 → bumping MaxHits 10 -> 9`; no-bump case `judged=10 max=10 → done`. Removing the old `JudgedHits = sum(scoreInfo.Statistics)` re-set is safe: that sum equaled live `JudgedHits` (both derived from `ScoreResultCounts`, kept in sync by `PopulateScore` on every `NewJudgement`, Player.cs:212); the bump writes only private `MaxHits` (+ `scoreInfo.PP` on seeked paths) and can't desync `ScoreInfo.Statistics` at results/import time.\n- **(b) No side-effect dependency on the removed end-of-play reset.** `OnResetFromReplayFrame` consumers: Player.cs:213 (`PopulateScore` — no-op, ScoreInfo already in sync), JudgementCountController.cs:62 (one-time sync, gate already consumed), MOsu StarRating/PP counters (recompute the same value; they're per-judgement-driven anyway). HUD resync uses `ResyncHudCounters`/`NewJudgement` paths — untouched.\n- **(c) Import path clean.** `prepareAndImportScoreAsync` (Player.cs:909) deep-clones the score; base `PrepareScoreForResultsAsync` (Player.cs:1283) is a no-op; `ImportScore` writes the clone. Nothing re-derives from live processor state, and the processor state at that moment is identical to what the old \"reset\" produced (the old header was built *from* `scoreInfo` itself — a no-op copy — with only the post-event combo-zeroing differing, which never reached `ScoreInfo`). No double-population"
+}

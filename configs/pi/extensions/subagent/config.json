@@ -1,0 +1,5 @@
+{
+	"globalConcurrencyLimit": 1,
+    "asyncByDefault": false,
+    "maxActiveAsyncRunsPerSession": 1
+}

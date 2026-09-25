@@ -1,8 +1,11 @@
 - **NEVER use `find` or `grep`** in shell commands. They are slower and produce noisy output.
 - **ALWAYS use `fd`** to search for files (faster, ignores .gitignore, colorized output).
 - **ALWAYS use `rg` (ripgrep)** to search file contents (faster, respects .gitignore, better filtering).
+- Use subagents
 - This is a hard rule, not a suggestion. Replace any instinct to use `find`/`grep` immediately.
 - We're on NixOS
 - YOU CANNOT READ IMAGES.
 - NEVER ATTEMPT TO READ IMAGES.
+- YOU CAN USE INSPECT IMAGE TOOL THOUGH
 - **NEVER use `find` or `grep` in any Bash/ShellSession command. Always use `fd` and `rg` instead.**
+- Upon completing your work, spawn a subagent to do a full and thorough quality pass through it for any remaining bugs, issues or QoL improvements
