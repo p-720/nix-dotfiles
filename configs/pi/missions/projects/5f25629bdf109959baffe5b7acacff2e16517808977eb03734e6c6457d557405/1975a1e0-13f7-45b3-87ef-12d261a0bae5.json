@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "id": "1975a1e0-13f7-45b3-87ef-12d261a0bae5",
+  "title": "[prompt redacted]",
+  "objective": "[prompt redacted]",
+  "status": "failed",
+  "createdAt": "2026-09-26T11:17:50.461Z",
+  "updatedAt": "2026-09-26T11:47:50.520Z",
+  "runs": [
+    {
+      "runId": "8db64843-8f60-431e-a0e6-ea1e889152f0",
+      "mode": "single",
+      "agent": "delegate",
+      "status": "failed",
+      "startedAt": "2026-09-26T11:47:50.520Z",
+      "completedAt": "2026-09-26T11:47:50.520Z",
+      "usage": {
+        "tokens": 243225
+      }
+    }
+  ],
+  "workflowChildren": [],
+  "decisions": [],
+  "artifacts": [
+    {
+      "kind": "output",
+      "path": "/home/andrew/.pi/agent/sessions/--mnt-md127-mosusu--/subagent-artifacts/8db64843-8f60-431e-a0e6-ea1e889152f0_delegate_0_output.md"
+    },
+    {
+      "kind": "other",
+      "path": "/home/andrew/.pi/agent/sessions/--mnt-md127-mosusu--/subagent-artifacts/8db64843-8f60-431e-a0e6-ea1e889152f0_delegate_0_transcript.jsonl",
+      "description": "Child transcript"
+    }
+  ],
+  "receipts": [],
+  "cwd": "/mnt/md127/mosusu",
+  "ownerSessionId": "/home/andrew/.pi/agent/sessions/--mnt-md127-mosusu--/2026-09-26T09-19-59-993Z_01a0dd03-a9f9-707e-b2d4-4147727fe48c.jsonl",
+  "summary": "Run fan-out: 1/64 used, 63 remaining\nSubagent timed out after 1800000ms.\n\nOutput:\nSubagent timed out after 1800000ms.\n\nRecovery summary:\n- termination: timed-out\n- changed tracked files: none\n- session file: /home/andrew/.pi/agent/sessions/--mnt-md127-mosusu--/2026-09-26T09-19-59-993Z_01a0dd03-a9f9-707e-b2d4-4147727fe48c/8db64843-8f60-431e-a0e6-ea1e889152f0/run-0/session.jsonl\n- transcript: /home/andrew/.pi/agent/sessions/--mnt-md127-mosusu--/subagent-artifacts/8db64843-8f60-431e-a0e6-ea1e889152f0_delegate_0_transcript.jsonl\n- output artifact: /home/andrew/.pi/agent/sessions/--mnt-md127-mosusu--/subagent-artifacts/8db64843-8f60-431e-a0e6-ea1e889152f0_delegate_0_output.md\n- metadata artifact: /home/andrew/.pi/agent/sessions/--mnt-md127-mosusu--/subagent-artifacts/8db64843-8f60-431e-a0e6-ea1e889152f0_delegate_0_meta.json\nWarning: Inspect partial changes before retrying or resuming the child.\n\nPartial output before timeout:\n\n\nLet me pin down exact line numbers for the findings.\n\nOutput artifact: /home/andrew/.pi/agent/sessions/--mnt-md127-mosusu--/subagent-artifacts/8db64843-8f60-431e-a0e6-ea1e889152f0_delegate_0_output.md",
+  "acceptance": {
+    "status": "rejected",
+    "evidenceStatus": "rejected",
+    "explicit": false,
+    "effectiveAcceptance": {
+      "level": "attested",
+      "explicit": false,
+      "inferredReason": [
+        "default lightweight attestation"
+      ],
+      "criteria": [
+        {
+          "id": "criterion-1",
+          "must": "Return a concise result and residual risks when applicable",
+          "evidence": [
+            "manual-notes",
+            "residual-risks"
+          ],
+          "severity": "required"
+        }
+      ],
+      "evidence": [
+        "manual-notes",
+        "residual-risks"
+      ],
+      "verify": [],
+      "stopRules": []
+    },
+    "inferredReason": [
+      "default lightweight attestation"
+    ],
+    "criteria": [
+      {
+        "id": "criterion-1",
+        "must": "Return a concise result and residual risks when applicable",
+        "evidence": [
+          "manual-notes",
+          "residual-risks"
+        ],
+        "severity": "required"
+      }
+    ],
+    "runtimeChecks": [
+      {
+        "id": "timeout",
+        "status": "failed",
+        "message": "Acceptance was not evaluated because the subagent timed out."
+      }
+    ],
+    "verifyRuns": []
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "id": "8187991c-7650-4bce-b3c3-26ea35606506",
+  "title": "[prompt redacted]",
+  "objective": "[prompt redacted]",
+  "status": "completed",
+  "createdAt": "2026-09-26T13:26:22.738Z",
+  "updatedAt": "2026-09-26T13:36:36.582Z",
+  "runs": [
+    {
+      "runId": "353b9a0c-8b38-4f74-bc5d-4a2de5ddaacc",
+      "mode": "single",
+      "asyncDir": "/tmp/pi-subagents-uid-1000/async-subagent-runs/353b9a0c-8b38-4f74-bc5d-4a2de5ddaacc",
+      "status": "complete",
+      "startedAt": "2026-09-26T13:26:22.759Z",
+      "completedAt": "2026-09-26T13:36:36.582Z",
+      "usage": {
+        "tokens": 79281
+      }
+    }
+  ],
+  "workflowChildren": [],
+  "decisions": [],
+  "artifacts": [
+    {
+      "kind": "status",
+      "path": "/tmp/pi-subagents-uid-1000/async-subagent-runs/353b9a0c-8b38-4f74-bc5d-4a2de5ddaacc/status.json"
+    },
+    {
+      "kind": "other",
+      "path": "/tmp/pi-subagents-uid-1000/async-subagent-runs/353b9a0c-8b38-4f74-bc5d-4a2de5ddaacc/events.jsonl",
+      "description": "Lifecycle events"
+    },
+    {
+      "kind": "output",
+      "path": "/home/andrew/.pi/agent/sessions/--mnt-md127-mosusu--/subagent-artifacts/353b9a0c-8b38-4f74-bc5d-4a2de5ddaacc_reviewer_output.md"
+    }
+  ],
+  "receipts": [],
+  "cwd": "/mnt/md127/mosusu",
+  "ownerSessionId": "/home/andrew/.pi/agent/sessions/--mnt-md127-mosusu--/2026-09-26T09-19-59-993Z_01a0dd03-a9f9-707e-b2d4-4147727fe48c.jsonl",
+  "summary": "reviewer:\n\n\n# Review: MOsu seek→cut refactor\n\nScope: the 7 named files only (upstream `osu/` not read, per instructions; no builds/tests run, per instructions). Line numbers from the current working tree.\n\n## Checklist\n\n**1. Concurrency — two cuts interleaving / cut while settle pending: NO.**\n`cut()` fires only when `settleDelegate == null && FrameStablePlayback` (MosuSeekController.cs:219-264). A cut sets `FrameStablePlayback=false` (:309); the *next* frame's first branch (:222) schedules the settle that restores it (:229) — so consecutive cuts have a hard ≥2-frame gap, and a cut can never fire while `settleDelegate` is pending (outer guard :220). Concurrent `RequestSeek` calls coalesce into the single `pendingCut` slot (queueCut, :190-193) — last-write-wins, no queue. The only other writer of `FrameStablePlayback` is `SafeSeek` (break skip, DrawableMosuRuleset.cs:134-158) — see Finding 5.\n\n**2. fwd/bwd/fwd state corruption: bookkeeping is sound; one heuristic hole.**\nDiffing is by reference (`Except`/`Except`, no `Equals` overrides on `HitObject`), `inPlayfield` is reassigned after every cut (:306), and `cut()` always updates `lastSplicedList` immediately after writing the splice (:295-306), so the out-of-band-adoption check (:280-286) can't false-positive on the controller's own writes. False *negative*: a mod that **mutates** the live list in place (`Clear()`+`AddRange`) instead of replacing the reference evades the `ReferenceEquals` check → backward cuts splice from a stale `originalHitObjects` snapshot (Finding 9). Straddler semantics are deterministic (`StartTime >= t`, whole-object drop), so re-cutting the same region is repeatable. One unverifiable-from-here caveat: after a forward cut, pre-cut hits may still sit in `scoreProcessor.Statistics` while maxes are re-derived from the tail; the Visual scene empirically reaches results, so upstream `ApplyBeatmap` evidently reconciles — residual risk, not evidence of a bug.\n\n**3. `completeCut()` exception paths: m"
+}

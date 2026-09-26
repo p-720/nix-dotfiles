@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "id": "6f37b0b0-b5c5-4d7d-bb82-86ece0ceb902",
+  "title": "[prompt redacted]",
+  "objective": "[prompt redacted]",
+  "status": "completed",
+  "createdAt": "2026-09-25T17:30:14.685Z",
+  "updatedAt": "2026-09-25T17:59:47.839Z",
+  "runs": [
+    {
+      "runId": "54183c66-e980-4208-82f9-1fca9c185b0f",
+      "mode": "single",
+      "asyncDir": "/tmp/pi-subagents-uid-1000/async-subagent-runs/54183c66-e980-4208-82f9-1fca9c185b0f",
+      "status": "complete",
+      "startedAt": "2026-09-25T17:30:14.708Z",
+      "completedAt": "2026-09-25T17:59:47.839Z",
+      "usage": {
+        "tokens": 16877
+      }
+    }
+  ],
+  "workflowChildren": [],
+  "decisions": [],
+  "artifacts": [
+    {
+      "kind": "status",
+      "path": "/tmp/pi-subagents-uid-1000/async-subagent-runs/54183c66-e980-4208-82f9-1fca9c185b0f/status.json"
+    },
+    {
+      "kind": "other",
+      "path": "/tmp/pi-subagents-uid-1000/async-subagent-runs/54183c66-e980-4208-82f9-1fca9c185b0f/events.jsonl",
+      "description": "Lifecycle events"
+    },
+    {
+      "kind": "output",
+      "path": "/home/andrew/.pi/agent/sessions/--mnt-md127-mosusu--/subagent-artifacts/54183c66-e980-4208-82f9-1fca9c185b0f_worker_output.md"
+    }
+  ],
+  "receipts": [],
+  "cwd": "/mnt/md127/mosusu",
+  "ownerSessionId": "/home/andrew/.pi/agent/sessions/--mnt-md127-mosusu--/2026-09-25T08-18-37-556Z_01a0d7a5-1d74-7511-89c8-86e03f99c8ed.jsonl",
+  "summary": "worker:\n\n\nThe fix is clear. However, before implementation, let me check the code for the `[mosu_replay] attach FAILED` error (which also occurred in this scene's logs), and also verify where `SetFrameFromTime"
+}

@@ -82,6 +82,9 @@
                     "reasoning": true,
                     "input": ["text", "image"],
                     "contextWindow": 150000,
+                    "thinkingLevelMap": {
+                        "xhigh": "xhigh"
+                    },
                     "maxTokens": 32768
                 }
             ]

@@ -2,7 +2,7 @@
   "lastChangelogVersion": "0.83.0",
   "defaultProvider": "qwen38-huge",
   "defaultModel": "qwen3.8-27b",
-  "defaultThinkingLevel": "high",
+  "defaultThinkingLevel": "xhigh",
   "compaction": {
     "enabled": true,
     "keepRecentTokens": 8192,

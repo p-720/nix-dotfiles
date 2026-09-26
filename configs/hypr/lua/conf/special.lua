@@ -29,8 +29,8 @@ hl.bind(mainMod .. " + m", hl.dsp.workspace.toggle_special("music"))
 hl.bind("F12", hl.dsp.workspace.toggle_special("alacritty"))
 hl.bind(mainMod .. " + c", hl.dsp.workspace.toggle_special("speedcrunch"))
 hl.bind(mainMod .. " + n", hl.dsp.workspace.toggle_special("emacs"))
-hl.bind(mainMod .. " + z", hl.dsp.workspace.toggle_special("default"))
-hl.bind(mainMod .. " + z", hl.dsp.exec_cmd("/etc/nixos/configs/hypr/position-emacs.py"))
+-- hl.bind(mainMod .. " + z", hl.dsp.workspace.toggle_special("default"))
+-- hl.bind(mainMod .. " + z", hl.dsp.exec_cmd("/etc/nixos/configs/hypr/position-emacs.py"))
 
 -- Workspace rules with gaps and on-created-empty
 hl.workspace_rule({ workspace = "special:default", gaps_out = 50, gaps_in = 15 })

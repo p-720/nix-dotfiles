@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "id": "3e420913-7b0a-4271-979f-ade8a92c6933",
+  "title": "[prompt redacted]",
+  "objective": "[prompt redacted]",
+  "status": "failed",
+  "createdAt": "2026-09-26T12:54:50.230Z",
+  "updatedAt": "2026-09-26T13:24:50.301Z",
+  "runs": [
+    {
+      "runId": "0f5cfb99-80ed-4865-87f2-c894a3c6ee5c",
+      "mode": "single",
+      "asyncDir": "/tmp/pi-subagents-uid-1000/async-subagent-runs/0f5cfb99-80ed-4865-87f2-c894a3c6ee5c",
+      "status": "failed",
+      "startedAt": "2026-09-26T12:54:50.262Z",
+      "completedAt": "2026-09-26T13:24:50.300Z",
+      "usage": {
+        "tokens": 278260
+      }
+    }
+  ],
+  "workflowChildren": [],
+  "decisions": [],
+  "artifacts": [
+    {
+      "kind": "status",
+      "path": "/tmp/pi-subagents-uid-1000/async-subagent-runs/0f5cfb99-80ed-4865-87f2-c894a3c6ee5c/status.json"
+    },
+    {
+      "kind": "other",
+      "path": "/tmp/pi-subagents-uid-1000/async-subagent-runs/0f5cfb99-80ed-4865-87f2-c894a3c6ee5c/events.jsonl",
+      "description": "Lifecycle events"
+    },
+    {
+      "kind": "output",
+      "path": "/home/andrew/.pi/agent/sessions/--mnt-md127-mosusu--/subagent-artifacts/0f5cfb99-80ed-4865-87f2-c894a3c6ee5c_reviewer_output.md"
+    }
+  ],
+  "receipts": [],
+  "cwd": "/mnt/md127/mosusu",
+  "ownerSessionId": "/home/andrew/.pi/agent/sessions/--mnt-md127-mosusu--/2026-09-26T09-19-59-993Z_01a0dd03-a9f9-707e-b2d4-4147727fe48c.jsonl",
+  "summary": "Subagent timed out after 1800000ms."
+}

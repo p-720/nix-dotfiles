@@ -1,1 +1,4 @@
 {"agent":"delegate","task":"[redacted]","taskHash":"067ce2db21880476a49926ba20bdb64316544c22eaf9e6e4b55324a038e31a77","ts":1790324241,"status":"ok","outcome":"completed","duration":18368}
+{"agent":"worker","task":"[redacted]","taskHash":"46005fa8f84f7a0eea200fccf7530c03a5ff8b89f944d79bfa9e3873250faee5","ts":1790413970,"status":"ok","outcome":"completed","duration":825822}
+{"agent":"reviewer","task":"[redacted]","taskHash":"92c5de7a6b86745f6829c4de555e93fbbb2ca9fe59e8433ec26e61e3151ddf88","ts":1790421221,"status":"ok","outcome":"completed","duration":1614676}
+{"agent":"delegate","task":"[redacted]","taskHash":"181fa7fbba6d4a5eab18394a148fd1fa436a6dec63213a6b0f16471c78d0137f","ts":1790423270,"status":"error","outcome":"timed_out","duration":1800022,"exit":1}
