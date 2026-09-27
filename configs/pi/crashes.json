@@ -1,0 +1,22 @@
+[
+  {
+    "timestamp": "2026-09-27T15:51:39.208Z",
+    "version": "0.87.1",
+    "kind": "uncaught_exception",
+    "message": "Cannot read properties of null (reading 'started')",
+    "stack": "TypeError: Cannot read properties of null (reading 'started')\n    at Timeout.updateStatus [as _onTimeout] (/home/andrew/.pi/agent/extensions/tmux-subagent/index.ts:236:94)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)",
+    "sessionFile": "/home/andrew/.pi/agent/sessions/--etc-nixos-configs-pi--/2026-09-27T14-27-36-233Z_01a0e343-a4a8-7525-b6bd-0c2221c490c9.jsonl",
+    "cwd": "/etc/nixos/configs/pi",
+    "notified": true
+  },
+  {
+    "timestamp": "2026-09-27T16:25:24.566Z",
+    "version": "0.87.1",
+    "kind": "uncaught_exception",
+    "message": "Cannot read properties of null (reading 'started')",
+    "stack": "TypeError: Cannot read properties of null (reading 'started')\n    at Timeout.updateStatus [as _onTimeout] (/home/andrew/.pi/agent/extensions/tmux-subagent/index.ts:239:94)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)",
+    "sessionFile": "/home/andrew/.pi/agent/sessions/--etc-nixos-configs-pi--/2026-09-27T14-27-36-233Z_01a0e343-a4a8-7525-b6bd-0c2221c490c9.jsonl",
+    "cwd": "/etc/nixos/configs/pi",
+    "notified": true
+  }
+]

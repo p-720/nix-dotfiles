@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "id": "7a2c5f12-1a2c-482f-94e4-ac66a644b659",
+  "title": "[prompt redacted]",
+  "objective": "[prompt redacted]",
+  "status": "failed",
+  "createdAt": "2026-09-27T14:04:43.034Z",
+  "updatedAt": "2026-09-27T14:26:57.706Z",
+  "runs": [
+    {
+      "runId": "ee528364-0137-4c11-9737-a48b8cea3e5f",
+      "mode": "single",
+      "agent": "reviewer",
+      "status": "failed",
+      "startedAt": "2026-09-27T14:26:57.705Z",
+      "completedAt": "2026-09-27T14:26:57.705Z",
+      "usage": {
+        "tokens": 231566
+      }
+    }
+  ],
+  "workflowChildren": [],
+  "decisions": [],
+  "artifacts": [
+    {
+      "kind": "output",
+      "path": "/home/andrew/.pi/agent/sessions/--mnt-md127-mosusu--/subagent-artifacts/ee528364-0137-4c11-9737-a48b8cea3e5f_reviewer_0_output.md"
+    },
+    {
+      "kind": "other",
+      "path": "/home/andrew/.pi/agent/sessions/--mnt-md127-mosusu--/subagent-artifacts/ee528364-0137-4c11-9737-a48b8cea3e5f_reviewer_0_transcript.jsonl",
+      "description": "Child transcript"
+    }
+  ],
+  "receipts": [],
+  "cwd": "/mnt/md127/mosusu",
+  "ownerSessionId": "/home/andrew/.pi/agent/sessions/--mnt-md127-mosusu--/2026-09-27T13-41-44-403Z_01a0e319-a753-7605-a1a3-9446923bd94e.jsonl",
+  "summary": "Run fan-out: 1/64 used, 63 remaining\nThis operation was aborted\nCompaction-induced child abort could not be resumed safely: explicit stop or interrupt.\n\nOutput:\nOne last verification — does `AddInternal` on a disposed drawable throw (for the P1 crash path)?\n\nOutput artifact: /home/andrew/.pi/agent/sessions/--mnt-md127-mosusu--/subagent-artifacts/ee528364-0137-4c11-9737-a48b8cea3e5f_reviewer_0_output.md",
+  "acceptance": {
+    "status": "rejected",
+    "evidenceStatus": "rejected",
+    "explicit": false,
+    "effectiveAcceptance": {
+      "level": "attested",
+      "explicit": false,
+      "inferredReason": [
+        "default lightweight attestation"
+      ],
+      "criteria": [
+        {
+          "id": "criterion-1",
+          "must": "Return a concise result and residual risks when applicable",
+          "evidence": [
+            "manual-notes",
+            "residual-risks"
+          ],
+          "severity": "required"
+        }
+      ],
+      "evidence": [
+        "manual-notes",
+        "residual-risks"
+      ],
+      "verify": [],
+      "stopRules": []
+    },
+    "inferredReason": [
+      "default lightweight attestation"
+    ],
+    "criteria": [
+      {
+        "id": "criterion-1",
+        "must": "Return a concise result and residual risks when applicable",
+        "evidence": [
+          "manual-notes",
+          "residual-risks"
+        ],
+        "severity": "required"
+      }
+    ],
+    "runtimeChecks": [
+      {
+        "id": "attestation",
+        "status": "failed",
+        "message": "Structured acceptance report not found."
+      }
+    ],
+    "verifyRuns": [],
+    "childReportParseError": "Structured acceptance report not found."
+  }
+}

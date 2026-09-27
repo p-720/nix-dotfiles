@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "id": "d81d11e1-03e8-42d1-bdb7-004c61a65e0f",
+  "title": "[prompt redacted]",
+  "objective": "[prompt redacted]",
+  "status": "cancelled",
+  "createdAt": "2026-09-27T13:47:15.105Z",
+  "updatedAt": "2026-09-27T13:51:58.768Z",
+  "runs": [
+    {
+      "runId": "5e5988c5-6cfb-4998-9cd1-f8830cc98a92",
+      "mode": "single",
+      "asyncDir": "/tmp/pi-subagents-uid-1000/async-subagent-runs/5e5988c5-6cfb-4998-9cd1-f8830cc98a92",
+      "status": "stopped",
+      "startedAt": "2026-09-27T13:47:15.136Z",
+      "completedAt": "2026-09-27T13:51:58.767Z",
+      "usage": {
+        "tokens": 41382
+      }
+    }
+  ],
+  "workflowChildren": [],
+  "decisions": [],
+  "artifacts": [
+    {
+      "kind": "status",
+      "path": "/tmp/pi-subagents-uid-1000/async-subagent-runs/5e5988c5-6cfb-4998-9cd1-f8830cc98a92/status.json"
+    },
+    {
+      "kind": "other",
+      "path": "/tmp/pi-subagents-uid-1000/async-subagent-runs/5e5988c5-6cfb-4998-9cd1-f8830cc98a92/events.jsonl",
+      "description": "Lifecycle events"
+    },
+    {
+      "kind": "output",
+      "path": "/home/andrew/.pi/agent/sessions/--mnt-md127-mosusu--/subagent-artifacts/5e5988c5-6cfb-4998-9cd1-f8830cc98a92_reviewer_output.md"
+    }
+  ],
+  "receipts": [],
+  "cwd": "/mnt/md127/mosusu",
+  "ownerSessionId": "/home/andrew/.pi/agent/sessions/--mnt-md127-mosusu--/2026-09-27T13-41-44-403Z_01a0e319-a753-7605-a1a3-9446923bd94e.jsonl",
+  "summary": "Subagent stopped by user."
+}

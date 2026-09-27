@@ -864,6 +864,7 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
     open-webui
     ddcutil
     unstable.telegram-desktop
+    unstable.ketch
     # tdesktop_p-720
     nil
     jpegoptim

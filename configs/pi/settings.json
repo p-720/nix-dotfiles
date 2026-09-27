@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "0.83.0",
+  "lastChangelogVersion": "0.87.1",
   "defaultProvider": "qwen38-huge",
   "defaultModel": "qwen3.8-27b",
   "defaultThinkingLevel": "xhigh",
@@ -11,14 +11,10 @@
   "packages": [
     "npm:pi-ask-user",
     "npm:pi-mcp-adapter",
-    "npm:@firstpick/pi-extension-nixos-wiki-local",
     "npm:@plannotator/pi-extension",
-    "git:github.com/DietrichGebert/ponytail",
     "git:github.com/okiess/pi-opencode-go-provider@fix/context-window-merge",
     "npm:pi-free",
-    "npm:pi-web-access",
-    "https://github.com/srossitto79/pi-gvs5h.git",
-    "npm:pi-subagents"
+    "npm:@sting8k/pi-vcc"
   ],
   "hideThinkingBlock": false,
   "theme": "dark"

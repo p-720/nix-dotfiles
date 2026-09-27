@@ -9,7 +9,7 @@ let
 in {
   home.file.".config/mcp/mcp.json".text = lib.generators.toJSON { } {
     mcpServers = {
-      exa = { url = "https://mcp.exa.ai/mcp"; };
+      # exa = { url = "https://mcp.exa.ai/mcp"; };
       computer-use-linux = {
         command = "computer-use-linux";
         args = [
@@ -24,11 +24,12 @@ in {
           "${config.home.homeDirectory}/.cache/playwright-mcp-profiles"
         ];
       };
-    } // lib.optionalAttrs (builtins.pathExists jinaApiKeyFile) {
-      jina-mcp-server = {
-        url = "https://mcp.jina.ai/v1";
-        headers = { Authorization = "Bearer ${jinaApiKey}"; };
-      };
     };
+    # // lib.optionalAttrs (builtins.pathExists jinaApiKeyFile) {
+    #   jina-mcp-server = {
+    #     url = "https://mcp.jina.ai/v1";
+    #     headers = { Authorization = "Bearer ${jinaApiKey}"; };
+    #   };
+    # };
   };
 }

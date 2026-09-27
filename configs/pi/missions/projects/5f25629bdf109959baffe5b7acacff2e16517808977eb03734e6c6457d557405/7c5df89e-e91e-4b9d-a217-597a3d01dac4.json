@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "id": "7c5df89e-e91e-4b9d-a217-597a3d01dac4",
+  "title": "[prompt redacted]",
+  "objective": "[prompt redacted]",
+  "status": "completed",
+  "createdAt": "2026-09-27T10:26:03.468Z",
+  "updatedAt": "2026-09-27T10:29:13.016Z",
+  "runs": [
+    {
+      "runId": "db25780b-549a-407d-9e5f-bef023ec559f",
+      "mode": "single",
+      "asyncDir": "/tmp/pi-subagents-uid-1000/async-subagent-runs/db25780b-549a-407d-9e5f-bef023ec559f",
+      "status": "complete",
+      "startedAt": "2026-09-27T10:26:03.497Z",
+      "completedAt": "2026-09-27T10:29:13.016Z",
+      "usage": {
+        "tokens": 42385
+      }
+    }
+  ],
+  "workflowChildren": [],
+  "decisions": [],
+  "artifacts": [
+    {
+      "kind": "status",
+      "path": "/tmp/pi-subagents-uid-1000/async-subagent-runs/db25780b-549a-407d-9e5f-bef023ec559f/status.json"
+    },
+    {
+      "kind": "other",
+      "path": "/tmp/pi-subagents-uid-1000/async-subagent-runs/db25780b-549a-407d-9e5f-bef023ec559f/events.jsonl",
+      "description": "Lifecycle events"
+    },
+    {
+      "kind": "output",
+      "path": "/home/andrew/.pi/agent/sessions/--mnt-md127-mosusu--/subagent-artifacts/db25780b-549a-407d-9e5f-bef023ec559f_reviewer_output.md"
+    }
+  ],
+  "receipts": [],
+  "cwd": "/mnt/md127/mosusu",
+  "ownerSessionId": "/home/andrew/.pi/agent/sessions/--mnt-md127-mosusu--/2026-09-27T09-42-05-648Z_01a0e23e-404f-7003-8515-174c142b42ba.jsonl",
+  "summary": "reviewer:\n\n\nAll checks are complete. `MetronomeBeat` is an upstream core type (`osu.Game/Rulesets/Mods/MetronomeBeat.cs`) covered by the mod's `using osu.Game.Rulesets.Mods;`, consistent with the attested clean build. Here is my review.\n\n## Review\n\n**1. `AutomatedVisualTestGame.cs` — taken verbatim from HEAD** ✅\n`watchdog_diff` against that path returns \"No working-tree changes against reviewer-launch HEAD 326ad1f69a09\", and the file is absent from the 6-file staged delta. Exactly as required.\n\n**2. `DrawableMosuRuleset.cs` — hand merge** ✅\n- **No conflict markers** — grep for `<<<<<<<`/`=======`/`>>>>>>>`: no matches.\n- **Ordering** ✅ — the synchronous attach hook (`player.OnShowingResults += () => { countPlay(); seekController?.TruncateReplayToLastCut(); AttachReplayFile(...); }`, lines ~245–258, inside the `scoreManager != null && player != null` block) is registered **before** the async PP bookkeeping hook (`player.OnShowingResults += async () => {...}`, line ~409, in the later `player != null` block). Inside the attach hook, `TruncateReplayToLastCut()` (line 252) runs **before** `AttachReplayFile` (line 257), so a cut play's replay is trimmed before encoding.\n- **`TruncateReplayToLastCut` idempotency** ✅ — `MosuSeekController.cs:182–203`: early-returns on `!hasCut`, and on `lastCutFrameCount <= 0`; after the `RemoveRange` it resets `lastCutFrameCount = 0`. The comment explicitly states a second call (results-push → player-pop firing two hooks) is a no-op. Calling it from pass (line 252), fail (line 265), and quit (line 285) hooks is safe.\n- **PP bookkeeping handler no longer writes the replay** ✅ — it now only: `calculatePP` → poll `realm.Write<bool>` until the row appears → write `score.PP` + active-profile `RealmUser.Username` → `UpdateUserStatisticsAsync`. All of HEAD's inline encode machinery (`replay` capture, `replayStream`, the `LegacyScoreEncoder` block, the `replayStream == null` / `Files.Count > 0` checks, the `AddFile` call) is removed from the handl"
+}

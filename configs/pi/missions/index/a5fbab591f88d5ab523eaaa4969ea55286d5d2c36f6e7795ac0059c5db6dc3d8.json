@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "missionId": "7a2c5f12-1a2c-482f-94e4-ac66a644b659",
+  "projectRoot": "/mnt/md127/mosusu",
+  "recordPath": "/home/andrew/.pi/agent/missions/projects/5f25629bdf109959baffe5b7acacff2e16517808977eb03734e6c6457d557405/7a2c5f12-1a2c-482f-94e4-ac66a644b659.json",
+  "title": "[prompt redacted]",
+  "status": "failed",
+  "updatedAt": "2026-09-27T14:26:57.706Z",
+  "lastRunId": "ee528364-0137-4c11-9737-a48b8cea3e5f"
+}

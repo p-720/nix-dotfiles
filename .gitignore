@@ -25,3 +25,4 @@ meta.db
 meta.db-wal
 cache/
 models-store.json
+web-search-cache
