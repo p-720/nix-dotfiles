@@ -14,7 +14,8 @@
     "npm:@plannotator/pi-extension",
     "git:github.com/okiess/pi-opencode-go-provider@fix/context-window-merge",
     "npm:pi-free",
-    "npm:@sting8k/pi-vcc"
+    "npm:@sting8k/pi-vcc",
+    "https://github.com/p-720/pi-interactive-subagents.git"
   ],
   "hideThinkingBlock": false,
   "theme": "dark"
