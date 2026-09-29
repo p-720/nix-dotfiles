@@ -91,12 +91,12 @@ lib.my.withHome
         # buffer -> skipped audio in recordings. default.clock.quantum is only a floor,
         # so quantum-limit is what actually caps OBS's request at 512 (~10.7ms).
         # (wireplumber stream.rules cannot force pulse-stream quanta in WP 0.5.)
-        "10-quantum" = {
-          "context.properties" = {
-            "default.clock.quantum" = 512;
-            "default.clock.quantum-limit" = 512;
-          };
-        };
+        # "10-quantum" = {
+        #   "context.properties" = {
+        #     "default.clock.quantum" = 512;
+        #     "default.clock.quantum-limit" = 512;
+        #   };
+        # };
         "10-noise" = {
           "context.modules" = [
             {

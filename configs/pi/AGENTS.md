@@ -7,6 +7,7 @@
 - **ALWAYS use `fd`** to search for files (faster, ignores .gitignore, colorized output).
 - **ALWAYS use `rg` (ripgrep)** to search file contents (faster, respects .gitignore, better filtering).
 - Use subagents
+- For browser use use playwright mcp connect to it first though.
 - This is a hard rule, not a suggestion. Replace any instinct to use `find`/`grep` immediately.
 - We're on NixOS
 - YOU CANNOT READ IMAGES.

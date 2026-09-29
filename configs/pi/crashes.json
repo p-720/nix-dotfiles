@@ -18,5 +18,25 @@
     "sessionFile": "/home/andrew/.pi/agent/sessions/--etc-nixos-configs-pi--/2026-09-27T14-27-36-233Z_01a0e343-a4a8-7525-b6bd-0c2221c490c9.jsonl",
     "cwd": "/etc/nixos/configs/pi",
     "notified": true
+  },
+  {
+    "timestamp": "2026-09-28T18:37:16.155Z",
+    "version": "0.87.1",
+    "kind": "uncaught_exception",
+    "message": "read EIO",
+    "stack": "Error: read EIO\n    at TTY.onStreamRead (node:internal/stream_base_commons:216:20)",
+    "sessionFile": "/home/andrew/.pi/agent/sessions/--mnt-md127-gifbot--/2026-09-28T16-36-07-642Z_01a0e8df-ab59-756a-9d4c-a3949934a07d.jsonl",
+    "cwd": "/mnt/md127/gifbot",
+    "notified": true
+  },
+  {
+    "timestamp": "2026-09-28T18:37:16.287Z",
+    "version": "0.87.1",
+    "kind": "uncaught_exception",
+    "message": "read EIO",
+    "stack": "Error: read EIO\n    at TTY.onStreamRead (node:internal/stream_base_commons:216:20)",
+    "sessionFile": "/home/andrew/.pi/agent/sessions/--mnt-md127-favoka-appointments_frontend-appointments_frontend--/2026-09-28T15-44-11-953Z_01a0e8b0-20af-7125-ad22-19bdd4ffc829.jsonl",
+    "cwd": "/mnt/md127/favoka/appointments_frontend/appointments_frontend",
+    "notified": true
   }
 ]

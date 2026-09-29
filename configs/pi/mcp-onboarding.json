@@ -2,5 +2,5 @@
   "version": 1,
   "sharedConfigHintShown": true,
   "setupCompleted": false,
-  "lastDiscoveryFingerprint": "{\"sources\":[[\"shared-global\",false,0],[\"pi-global\",false,0],[\"shared-project\",true,1],[\"pi-project\",false,0]],\"imports\":[[\"claude-code\",\"/home/andrew/.claude.json\",0]]}"
+  "lastDiscoveryFingerprint": "{\"sources\":[[\"shared-global\",true,2],[\"agents-global\",false,0],[\"agents-nested-global\",false,0],[\"pi-global\",false,0],[\"shared-project\",false,0],[\"pi-project\",false,0]]}"
 }
