@@ -91,48 +91,62 @@ lib.my.withHome
         # buffer -> skipped audio in recordings. default.clock.quantum is only a floor,
         # so quantum-limit is what actually caps OBS's request at 512 (~10.7ms).
         # (wireplumber stream.rules cannot force pulse-stream quanta in WP 0.5.)
-        # "10-quantum" = {
-        #   "context.properties" = {
-        #     "default.clock.quantum" = 512;
-        #     "default.clock.quantum-limit" = 512;
-        #   };
-        # };
-        "10-noise" = {
-          "context.modules" = [
-            {
-              name = "libpipewire-module-filter-chain";
-              args = {
-                "node.description" = "Noise Canceling source";
-                "media.name" = "Noise Canceling source";
-                "filter.graph" = {
-                  nodes = [
-                    {
-                      type = "ladspa";
-                      name = "rnnoise";
-                      plugin = "librnnoise_ladspa";
-                      label = "noise_suppressor_stereo";
-                      control = {
-                        "VAD Threshold (%)" = 50.0;
-                      };
-                    }
-                  ];
-                };
-                "capture.props" = {
-                  "target.object" = "alsa_input.usb-C-Media_Electronics_Inc._USB_PnP_Sound_Device-00.mono-fallback";
-                  "node.name" = "capture.rnnoise_source";
-                  "node.latency" = "256/48000";
-                  "node.passive" = true;
-                };
-                "playback.props" = {
-                  "node.name" = "rnnoise_source";
-                  "node.latency" = "256/48000";
-                  "media.class" = "Audio/Source";
-                  "audio.position" = [ "FL" "FR" ];
-                };
-              };
-            }
-          ];
+        # Re-enabled. The headset (Logitech PRO X 2, card4) and the CM108 input
+        # are both full-speed USB devices; snd-usb-audio was handing PipeWire a
+        # 32768-frame buffer (683ms) with a 128-frame period (256 periods), which
+        # underruns constantly ("snd_pcm_mmap_commit: Broken pipe"). Capping the
+        # quantum bounds the request and shrinks the buffer the driver picks.
+        "10-quantum" = {
+          "context.properties" = {
+            "default.clock.quantum" = 512;
+            "default.clock.quantum-limit" = 512;
+          };
         };
+        # DISABLED: this chain captured the CM108 (the piano's input) and applied
+        # RNNoise to it. Two problems, both audible as choppy/stuttering piano:
+        #   1. RNNoise is a speech gate; on piano it truncates note tails.
+        #   2. capture.rnnoise_source opened a *second* stream on the same PCM as
+        #      the default source. The CM108 is a full-speed (12Mbit/s) USB device,
+        #      and the shared stream starved the converter downstream
+        #      ("spa.audioconvert: out of buffers" every ~2s).
+        # re-enable only if the CM108 stops being the instrument input, or wire it
+        # to a dedicated mic via a "condition" so it can't grab the music device.
+        # "10-noise" = {
+        #   "context.modules" = [
+        #     {
+        #       name = "libpipewire-module-filter-chain";
+        #       args = {
+        #         "node.description" = "Noise Canceling source";
+        #         "media.name" = "Noise Canceling source";
+        #         "filter.graph" = {
+        #           nodes = [
+        #             {
+        #               type = "ladspa";
+        #               name = "rnnoise";
+        #               plugin = "librnnoise_ladspa";
+        #               label = "noise_suppressor_stereo";
+        #               control = {
+        #                 "VAD Threshold (%)" = 50.0;
+        #               };
+        #             }
+        #           ];
+        #         };
+        #         "capture.props" = {
+        #           "target.object" = "alsa_input.usb-C-Media_Electronics_Inc._USB_PnP_Sound_Device-00.mono-fallback";
+        #           "node.name" = "capture.rnnoise_source";
+        #           "node.latency" = "256/48000";
+        #           "node.passive" = true;
+        #         };
+        #         "playback.props" = {
+        #           "node.name" = "rnnoise_source";
+        #           "node.latency" = "256/48000";
+        #           "media.class" = "Audio/Source";
+        #           "audio.position" = [ "FL" "FR" ];
+        #         };
+        #       };
+        #     }
+        #   ];
+        # };
       };
       # extraConfig.pipewire = {
       #     "10-combine-sinks" = {

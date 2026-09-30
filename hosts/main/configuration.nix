@@ -842,7 +842,7 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
     #(pkgs.callPackage /etc/nixos/pkgs/tdesktop.nix { })
     # (pkgs.callPackage ./pkgs/openhab.nix { })
     # discord
-    rtk
+    # rtk
     # legcord
     # unstable.tdesktop
     # (unstable.qt6Packages.callPackage /etc/nixos/pkgs/tdesktop/tdesktop.nix {

@@ -13,38 +13,14 @@ in {
     };
   };
   config = mkIf cfg.enable {
-    environment = {
-      etc."nvidia/nvidia-application-profiles-rc.d/50-limit-free-buffer-pool.json".text = builtins.toJSON {
-        rules =
-          map (proc: {
-            pattern = {
-              feature = "procname";
-              matches = proc;
-            };
-            profile = "No VidMem Reuse";
-          }) [
-            "Hyprland"
-            "max"
-            "org.telegram.desktop"
-            ".Hyprland-wrapped"
-            "firefox"
-            ".firefox-wrapped"
-            "Brave"
-            "kdenlive"
-            "brave"
-            ".brave-wrapped"
-            "Discord"
-            ".Discord-wrapped"
-            "DiscordCanary"
-            ".DiscordCanary-wrapped"
-            "electron"
-            ".electron-wrapped"
-            "librewolf"
-            ".librewolf-wrapped"
-            "losslesscut"
-            ".losslesscut-wrapped"
-          ];
-      };
+    environment.etc."nvidia/nvidia-application-profiles-rc.d/50-limit-free-buffer-pool-in-wayland-compositors.json".text = builtins.toJSON {
+      rules = [
+        { pattern = { feature = "procname"; matches = "Hyprland"; }; profile = "No VidMem Reuse"; }
+        { pattern = { feature = "procname"; matches = ".Hyprland-wrapped"; }; profile = "No VidMem Reuse"; }
+      ];
+      profiles = [
+        { name = "No VidMem Reuse"; settings = [ { key = "GLVidHeapReuseRatio"; value = 0; } ]; }
+      ];
     };
   };
 }

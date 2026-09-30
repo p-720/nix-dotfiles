@@ -23,13 +23,13 @@ hl.config({
         active_opacity = 1.0,
         inactive_opacity = 1.0,
         shadow = {
-            enabled = true,
+            enabled = false,
             range = 10,
             render_power = 2,
             color = "rgba(1a1a1a22)",
         },
         blur = {
-            enabled = true,
+            enabled = false,
             size = 3,
             passes = 1,
             vibrancy = 0.1696,
@@ -38,5 +38,7 @@ hl.config({
     misc = {
         focus_on_activate = false,
         enable_anr_dialog = false,
+        force_default_wallpaper = 0,
+        disable_hyprland_logo = true
     },
 })
