@@ -833,6 +833,7 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
     my.antigravity-manager
     compfy
     picom
+    my.photocraft
     playwright-mcp
     # (callPackage /etc/nixos/pkgs/picom-animations.nix { })
     # (pkgs.callPackage /mnt/md127/nixpkgs/pkgs/applications/networking/instant-messengers/telegram/tdesktop { })
