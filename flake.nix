@@ -22,6 +22,7 @@
     nixpkgs = { url = "github:nixos/nixpkgs/nixos-26.05"; };
     max-messenger.url = "github:spiage/max-messenger";
     playwright-cli.url = "github:p-720/playwright-cli-flake";
+    claude-desktop-nix-flake.url = "github:poeck/claude-desktop-nix-flake";
 
     nixos-unstable.url = "nixpkgs/nixos-unstable";
     appblocker.url = "github:p-720/appblocker";
@@ -143,6 +144,7 @@
       pkgs = mkPkgs nixpkgs [
         poetry2nix.overlays.default
         spl3g-config.overlays.additions
+        inputs.claude-desktop-nix-flake.overlays.default
         hyprland.overlays.hyprland
         hyprland.overlays.hyprland-packages
       ];
