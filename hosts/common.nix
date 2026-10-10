@@ -242,7 +242,7 @@ run-shell ${pkgs.tmuxPlugins.yank}/share/tmux-plugins/yank/yank.tmux
     enable = true;
     configFile = "/home/${config.user}/Dropbox/mihomo/config.yaml";
     # package = pkgs.unstable.mihomo;
-    package = pkgs.my.mihomo;
+    package = pkgs.unstable.mihomo;
     # package = pkgs.old-24-05.mihomo;
     tunMode = true;
   };
