@@ -6,50 +6,32 @@
             "unlocked": "",
         }
     },
-
     "hyprland/workspaces": {
         "format": "{icon} {windows}",
         "on-scroll-up": "hyprctl dispatch workspace e+1",
         "on-scroll-down": "hyprctl dispatch workspace e-1",
         "enable-bar-scroll": true,
-        "format-window-separator": " ",
-        "window-rewrite-default": "",
-    "window-rewrite": {
-        "title<.*youtube.*>": "",
-        "class<firefox>": "",
-        "class<firefox> title<.*github.*>": "",
-        "foot": "",
-        "code": "󰨞",
-        "class<emacs>": "",
-        "title<.*MAX.*>": "",
-        "class<emacs> title<.*org-mode.*>": "",
-        "class<vim>": "",
-        "class<nvim>": "",
-        "class<kitty>": "",
-        "class<vscode>": "󰨞",
-        "class<vscode> title<.*typescript.*>": "",
-        "class<alacritty>": "",
-        "class<intellij>": "",
-        "class<pycharm>": "",
-        "sublime": "",
-        "terminal": "",
-        "class<guake>": "",
-        "class<zen-beta>": "󰽪",
-        "class<zen-beta> title<.*reddit.*>": "",
-        "class<chrome>": "󰊯",
-        "class<brave>": "🦁",
-        "class<vivaldi>": "󰖝",
-        "class<spotify>": "󰓇",
-        "class<telegramdesktop>": "",
-        "class<telegramdesktop> title<.*group.*>": "",
-        "spotify": "󰓇",
-        "telegram": "",
-        "class<org.gnome.Nautilus>": "",
-        "class<org.gnome.Nautilus> title<.*trash.*>": "🗑",
-        "class<osu>": "󰝚",
-        "osu": "󰝚",
-        "class<gimp>": ""
-    },
+
+        // --- Taskbar Mode ---
+        "workspace-taskbar": {
+            "enable": true,
+            // Highlights the icon of the currently focused window.
+                // Note: May increase CPU usage due to more frequent redraws.
+                "update-active-window": true,
+            // Format for each window icon inside the workspace button.
+                // {icon} is the image; {title} is also available.
+                "format": "{icon}",
+            // Size of the app icons in pixels. Adjust to taste.
+                "icon-size": 18
+            // Optional: Add an on-click command to focus a specific window.
+                // "on-click-window": "hyprctl dispatch focuswindow address:{address}"
+        }
+
+        // The following settings are now IGNORED because workspace-taskbar is enabled.
+            // You can safely remove them to clean up your config.
+            // "format-window-separator": " ",
+        // "window-rewrite-default": "",
+        // "window-rewrite": { ... }
     },
     "hyprland/submap": {
         "format": "✌️ {}",
