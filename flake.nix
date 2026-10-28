@@ -24,6 +24,10 @@
     playwright-cli.url = "github:p-720/playwright-cli-flake";
     claude-desktop-nix-flake.url = "github:poeck/claude-desktop-nix-flake";
 
+    grok-bot = {
+      url = "github:nickmartin1ee7/grok-bot-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     nixos-unstable.url = "nixpkgs/nixos-unstable";
     appblocker.url = "github:p-720/appblocker";
     nanobanana.url = "github:p-720/nanobanana";
@@ -125,6 +129,7 @@
               void-editor = inputs.void-editor.packages.${system}.default;
               ai-shell = ai-shell.packages.${system}.default;
               pomotasker = pomotasker.packages.${system}.default;
+              grok-bot = inputs.grok-bot.packages.${system}.grok-bot;
 
               unstable = import nixos-unstable { config = self.config; };
               compfy = compfy.packages.${system}.compfy;

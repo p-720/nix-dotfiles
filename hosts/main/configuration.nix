@@ -353,7 +353,7 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
         # "15 21 * * * andrew /etc/nixos/shutdown.sh"
         # "30 21 * * * andrew /etc/nixos/shutdown.sh"
         # "30 21 * * * andrew /etc/nixos/shutdown.sh"
-        "50 21 * * * root /etc/nixos/shutdown.sh"
+        "00 21 * * * root /etc/nixos/shutdown.sh"
         "45 21 * * * andrew DBUS_SESSION_BUS_ADDRESS='unix:path=/run/user/1000/bus' /run/current-system/sw/bin/notify-send 'Shutdown in 5 MINUTES'"
 
         "00 20 * * * andrew /home/andrew/Dropbox/update_ip.sh"
@@ -835,6 +835,7 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
     picom
     my.photocraft
     my.vectorcraft
+    grok-bot
     playwright-mcp
     blender
     claude-desktop

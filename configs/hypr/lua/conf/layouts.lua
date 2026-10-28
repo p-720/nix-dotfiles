@@ -1,7 +1,11 @@
 
 hl.config({
     general = {
-        layout = "master",
+        layout = "scrolling",
+    },
+    scrolling = {
+
+        column_width = 0.25
     },
     master = {
         mfact = 0.70,

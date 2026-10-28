@@ -25,6 +25,7 @@
   libsigcxx,
   libxkbcommon,
   meson,
+  modemmanager,
   ncurses,
   ninja,
   pipewire,
@@ -65,6 +66,7 @@
   udevSupport ? true,
   upowerSupport ? true,
   wireplumberSupport ? true,
+  wwanSupport ? true,
   withMediaPlayer ? mprisSupport && false,
   nix-update-script,
 }:
@@ -93,7 +95,7 @@ stdenv.mkDerivation (finalAttrs: {
     owner = "Alexays";
     repo = "Waybar";
     rev = "master";
-    hash = "sha256-51R3mIt8cLNvh/X5qe9vOqeJCj0U9KRyemVE5y+OhiU=";
+    hash = "sha256-mBDWjeeIuFfDZQuBxHu+EpbJ+GMbbSxpRz0WVM2N+ZI=";
   };
 
   postUnpack = lib.optional cavaSupport ''
@@ -150,6 +152,7 @@ stdenv.mkDerivation (finalAttrs: {
   ++ lib.optional udevSupport udev
   ++ lib.optional upowerSupport upower
   ++ lib.optional wireplumberSupport wireplumber
+  ++ lib.optional wwanSupport modemmanager
   ++ lib.optional (cavaSupport || pipewireSupport) pipewire
   ++ lib.optional (!stdenv.hostPlatform.isLinux) libinotify-kqueue;
 
@@ -177,6 +180,7 @@ stdenv.mkDerivation (finalAttrs: {
       "tests" = runTests;
       "upower_glib" = upowerSupport;
       "wireplumber" = wireplumberSupport;
+      "wwan" = wwanSupport;
     })
     ++ (lib.mapAttrsToList lib.mesonBool {
       "experimental" = experimentalPatches;

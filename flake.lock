@@ -777,6 +777,26 @@
         "type": "github"
       }
     },
+    "grok-bot": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1793155936,
+        "narHash": "sha256-hvkcJhPx8TU6/FTHCsDj41QMPx+xzYsPKrjFnNhjd40=",
+        "owner": "nickmartin1ee7",
+        "repo": "grok-bot-nix",
+        "rev": "46011c1473c69cfc74039170ad11c124a45cc2c3",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nickmartin1ee7",
+        "repo": "grok-bot-nix",
+        "type": "github"
+      }
+    },
     "home-manager": {
       "inputs": {
         "nixpkgs": [
@@ -1644,11 +1664,11 @@
     },
     "nixos-unstable": {
       "locked": {
-        "lastModified": 1791456040,
-        "narHash": "sha256-gRZ/s8WQJ2CsXdhcDVQH34qxuL0MuMCOs3aBiK1Prsw=",
-        "rev": "e7439b6b14ad3cc35d05608ebca9bce01a25f5f8",
+        "lastModified": 1793110635,
+        "narHash": "sha256-yXRSdZdZZqccEL+j11lc1gFG1f7V5j8N7oPBTHwf7n4=",
+        "rev": "31ecbaca1bdefa45dffc409f0250bd8039ea0010",
         "type": "tarball",
-        "url": "https://releases.nixos.org/nixos/unstable/nixos-26.11pre1087755.e7439b6b14ad/nixexprs.tar.zst"
+        "url": "https://releases.nixos.org/nixos/unstable/nixos-26.11pre1103272.31ecbaca1bde/nixexprs.tar.zst"
       },
       "original": {
         "id": "nixpkgs",
@@ -2282,6 +2302,7 @@
         "appblocker": "appblocker",
         "claude-desktop-nix-flake": "claude-desktop-nix-flake",
         "compfy": "compfy",
+        "grok-bot": "grok-bot",
         "home-manager": "home-manager",
         "hyprland": "hyprland",
         "max-messenger": "max-messenger",
