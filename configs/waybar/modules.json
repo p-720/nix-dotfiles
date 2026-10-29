@@ -7,9 +7,9 @@
         }
     },
     "hyprland/workspaces": {
-        "format": "{icon} {windows}",
-        "on-scroll-up": "hyprctl dispatch workspace e+1",
-        "on-scroll-down": "hyprctl dispatch workspace e-1",
+        "format": "{icon}{windows}",
+        // "on-scroll-up": "hyprctl dispatch workspace e+1",
+        // "on-scroll-down": "hyprctl dispatch workspace e-1",
         "enable-bar-scroll": true,
 
         // --- Taskbar Mode ---
@@ -22,7 +22,7 @@
                 // {icon} is the image; {title} is also available.
                 "format": "{icon}",
             // Size of the app icons in pixels. Adjust to taste.
-                "icon-size": 18
+                "icon-size": 18,
             // Optional: Add an on-click command to focus a specific window.
                 // "on-click-window": "hyprctl dispatch focuswindow address:{address}"
         }
