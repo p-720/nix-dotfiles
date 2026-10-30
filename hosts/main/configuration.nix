@@ -819,7 +819,7 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
     xclip
     xdotool
     tldr
-    claude-code
+    unstable.claude-code
     cheat
     # libsForQt5.breeze-gtk
     # libsForQt5.breeze-qt5
@@ -836,6 +836,8 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
     my.photocraft
     my.vectorcraft
     grok-bot
+    t3-code
+    gh
     playwright-mcp
     blender
     claude-desktop
@@ -869,7 +871,9 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
     open-webui
     ddcutil
     unstable.telegram-desktop
-    unstable.ketch
+    my.ketch
+    unstable.cline
+    my.kilo
     # tdesktop_p-720
     nil
     jpegoptim
@@ -881,7 +885,7 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
     minidlna
     gedit
     my.cassistant
-    codex
+    unstable.codex
     # gnome.gnome-boxes
     # unstable.rustdesk
     # rustdesk

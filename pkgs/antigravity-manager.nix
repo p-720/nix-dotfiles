@@ -2,12 +2,12 @@
 
 let
   pname = "antigravity-manager";
-  version = "4.3.6";
+  version = "5.0.0";
 
   src = fetchurl {
     url =
       "https://github.com/lbjlaq/Antigravity-Manager/releases/download/v${version}/Antigravity.Tools_${version}_amd64.AppImage";
-    sha256 = "sha256-lak/rkKjgzgjq0cLjSW7kFDKiKUYTFanj0l4djdM81k=";
+    sha256 = "sha256-XkHel60IvxOrtDr0H6u2DeOQPHK1pYwoxQpEIp+fqpQ=";
   };
 
   appimageContents = appimageTools.extractType2 { inherit pname version src; };
@@ -27,7 +27,6 @@ in appimageTools.wrapType2 rec {
 
   extraInstallCommands = ''
     install -m 444 -D ${desktopItem}/share/applications/${pname}.desktop $out/share/applications/${pname}.desktop
-    install -m 444 -D ${appimageContents}/antigravity_tools.png $out/share/icons/hicolor/512x512/apps/${pname}.png
   '';
 
   meta = with lib; {

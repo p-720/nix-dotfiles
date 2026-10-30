@@ -23,7 +23,7 @@
     max-messenger.url = "github:spiage/max-messenger";
     playwright-cli.url = "github:p-720/playwright-cli-flake";
     claude-desktop-nix-flake.url = "github:poeck/claude-desktop-nix-flake";
-
+    t3code-flake.url = "github:p-720/t3code-flake";
     grok-bot = {
       url = "github:nickmartin1ee7/grok-bot-nix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -130,6 +130,7 @@
               ai-shell = ai-shell.packages.${system}.default;
               pomotasker = pomotasker.packages.${system}.default;
               grok-bot = inputs.grok-bot.packages.${system}.grok-bot;
+              t3-code = inputs.t3code-flake.packages.${system}.t3-code;
 
               unstable = import nixos-unstable { config = self.config; };
               compfy = compfy.packages.${system}.compfy;

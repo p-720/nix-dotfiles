@@ -23,6 +23,36 @@
                     "id": "deepseek/deepseek-v4-flash-0731",
                     "contextWindow": 1048576,
                     "maxTokens": 65536
+                },
+                {
+                    "id": "nvidia/nemotron-3.5-super-vl:free",
+                    "name": "NVIDIA: Nemotron 3.5 Super VL (free)",
+                    "reasoning": true,
+                    "input": ["text", "image"],
+                    "contextWindow": 1000000,
+                    "maxTokens": 131072,
+                    "cost": {
+                        "input": 0,
+                        "output": 0,
+                        "cacheRead": 0,
+                        "cacheWrite": 0
+                    },
+                    "compat": {
+                        "supportsDeveloperRole": false,
+                        "thinkingFormat": "openrouter",
+                        "supportsStrictMode": true,
+                        "sendSessionAffinityHeaders": true
+                    },
+                    "inputLimits": {
+                        "images": {
+                            "resize": {
+                                "maxWidth": 2000,
+                                "maxHeight": 2000,
+                                "maxBytes": 4718592,
+                                "jpegQuality": 80
+                            }
+                        }
+                    }
                 }
             ]
         },
