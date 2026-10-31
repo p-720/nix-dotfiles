@@ -208,9 +208,19 @@ movetag(const Arg *arg)
 }
 
 static void
+warppointer(Client *c)
+{
+	int x = c ? c->x + c->w / 2 : selmon->mx + selmon->mw / 2;
+	int y = c ? c->y + c->h / 2 : selmon->my + selmon->mh / 2;
+
+	XWarpPointer(dpy, None, root, 0, 0, 0, 0, x, y);
+	XFlush(dpy);
+}
+
+static void
 viewtag(const Arg *arg)
 {
-	Monitor *m = tagmonitor(arg->ui);
+	Monitor *m = tagmonitor(arg->ui), *prev = selmon;
 
 	if (m != selmon) {
 		unfocus(selmon->sel, 0);
@@ -226,6 +236,9 @@ viewtag(const Arg *arg)
 	else if (selmon->lt[selmon->sellt] == &layouts[3])
 		selmon->lt[selmon->sellt] = &layouts[0];
 	arrange(selmon);
+	/* follow only when the workspace moved to another monitor */
+	if (selmon != prev)
+		warppointer(selmon->sel);
 }
 
 /* move the focused window to the tag's monitor without following it */
