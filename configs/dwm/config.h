@@ -1,4 +1,5 @@
 #include <X11/XF86keysym.h>
+#include <limits.h>
 /* See LICENSE file for copyright and license details. */
 
 /* appearance */
@@ -166,6 +167,16 @@ tagmonitor(unsigned int mask)
 }
 
 static void
+warppointer(Client *c)
+{
+	if (!c)
+		return;
+	XWarpPointer(dpy, None, root, 0, 0, 0, 0,
+		c->x + c->w / 2, c->y + c->h / 2);
+	XFlush(dpy);
+}
+
+static void
 viewtag(const Arg *arg)
 {
 	Monitor *m = tagmonitor(arg->ui);
@@ -184,6 +195,7 @@ viewtag(const Arg *arg)
 	else if (selmon->lt[selmon->sellt] == &layouts[3])
 		selmon->lt[selmon->sellt] = &layouts[0];
 	arrange(selmon);
+	warppointer(selmon->sel);
 }
 
 /* move the focused window to the tag's monitor without following it */
@@ -235,6 +247,167 @@ viewmax(const Arg *arg)
 		spawn(&(Arg){ .v = maxcmd });
 }
 
+enum { DirLeft, DirRight, DirUp, DirDown };
+
+static long
+dist2(int x1, int y1, int x2, int y2)
+{
+	long dx = x1 - x2;
+	long dy = y1 - y2;
+	return dx * dx + dy * dy;
+}
+
+static Monitor *
+adjmon(int dir)
+{
+	Monitor *m, *best = NULL;
+	long bestdist = LONG_MAX;
+	int sx = selmon->mx, sy = selmon->my;
+	int sw = selmon->mw, sh = selmon->mh;
+	int cx = sx + sw / 2, cy = sy + sh / 2;
+
+	for (m = mons; m; m = m->next) {
+		long d;
+		if (m == selmon)
+			continue;
+		if (dir == DirLeft && m->mx + m->mw > sx)
+			continue;
+		if (dir == DirRight && m->mx < sx + sw)
+			continue;
+		if (dir == DirUp && m->my + m->mh > sy)
+			continue;
+		if (dir == DirDown && m->my < sy + sh)
+			continue;
+		d = dist2(cx, cy, m->mx + m->mw / 2, m->my + m->mh / 2);
+		if (d < bestdist) {
+			bestdist = d;
+			best = m;
+		}
+	}
+	return best;
+}
+
+static void
+focusdir(const Arg *arg)
+{
+	Client *c = selmon->sel, *t, *best = NULL;
+	Monitor *m;
+	long bestdist = LONG_MAX;
+	int cx, cy, tx, ty;
+	int dir = arg->i;
+
+	if (!c) {
+		focus(NULL);
+		return;
+	}
+	cx = c->x + c->w / 2;
+	cy = c->y + c->h / 2;
+	for (t = selmon->clients; t; t = t->next) {
+		long d;
+		if (t == c || !ISVISIBLE(t))
+			continue;
+		tx = t->x + t->w / 2;
+		ty = t->y + t->h / 2;
+		if (dir == DirLeft && tx >= cx)
+			continue;
+		if (dir == DirRight && tx <= cx)
+			continue;
+		if (dir == DirUp && ty >= cy)
+			continue;
+		if (dir == DirDown && ty <= cy)
+			continue;
+		d = dist2(cx, cy, tx, ty);
+		if (d < bestdist) {
+			bestdist = d;
+			best = t;
+		}
+	}
+	if (best) {
+		focus(best);
+		return;
+	}
+	if ((m = adjmon(dir))) {
+		unfocus(selmon->sel, 0);
+		selmon = m;
+		focus(NULL);
+		warppointer(selmon->sel);
+	}
+}
+
+static void
+swapclients(Client *a, Client *b)
+{
+	Client **pa, **pb, *na, *nb;
+
+	if (!a || !b || a == b || a->mon != b->mon)
+		return;
+	for (pa = &a->mon->clients; *pa && *pa != a; pa = &(*pa)->next);
+	for (pb = &a->mon->clients; *pb && *pb != b; pb = &(*pb)->next);
+	if (*pa != a || *pb != b)
+		return;
+	na = a->next;
+	nb = b->next;
+	if (na == b) {
+		*pa = b;
+		b->next = a;
+		a->next = nb;
+	} else if (nb == a) {
+		*pb = a;
+		a->next = b;
+		b->next = na;
+	} else {
+		*pa = b;
+		b->next = na;
+		*pb = a;
+		a->next = nb;
+	}
+	arrange(a->mon);
+}
+
+static void
+movedir(const Arg *arg)
+{
+	Client *c = selmon->sel, *t, *best = NULL;
+	Monitor *m;
+	long bestdist = LONG_MAX;
+	int cx, cy, tx, ty;
+	int dir = arg->i;
+
+	if (!c)
+		return;
+	cx = c->x + c->w / 2;
+	cy = c->y + c->h / 2;
+	for (t = selmon->clients; t; t = t->next) {
+		long d;
+		if (t == c || !ISVISIBLE(t) || t->isfloating)
+			continue;
+		tx = t->x + t->w / 2;
+		ty = t->y + t->h / 2;
+		if (dir == DirLeft && tx >= cx)
+			continue;
+		if (dir == DirRight && tx <= cx)
+			continue;
+		if (dir == DirUp && ty >= cy)
+			continue;
+		if (dir == DirDown && ty <= cy)
+			continue;
+		d = dist2(cx, cy, tx, ty);
+		if (d < bestdist) {
+			bestdist = d;
+			best = t;
+		}
+	}
+	if (best) {
+		swapclients(c, best);
+		focus(c);
+		return;
+	}
+	if ((m = adjmon(dir))) {
+		sendmon(c, m);
+		focus(NULL);
+	}
+}
+
 /* key definitions */
 #define MODKEY Mod4Mask
 #define TAGKEYS(KEY,TAG) \
@@ -273,15 +446,18 @@ static const Key keys[] = {
 	{ MODKEY,                       XK_space,            setlayout,      {0} },
 	{ MODKEY|ShiftMask,             XK_Return,           zoom,           {0} },
 	/* focus / resize */
-	{ MODKEY,                       XK_j,                focusstack,     {.i = +1} },
-	{ MODKEY,                       XK_k,                focusstack,     {.i = -1} },
-	{ MODKEY,                       XK_h,                setmfact,       {.f = -0.05f} },
-	{ MODKEY,                       XK_l,                setmfact,       {.f = +0.05f} },
+	/* directional focus, crossing monitor edges like hyprland */
+	{ MODKEY,                       XK_h,                focusdir,       {.i = DirLeft} },
+	{ MODKEY,                       XK_l,                focusdir,       {.i = DirRight} },
+	{ MODKEY,                       XK_k,                focusdir,       {.i = DirUp} },
+	{ MODKEY,                       XK_j,                focusdir,       {.i = DirDown} },
 	{ MODKEY,                       XK_i,                incnmaster,     {.i = +1} },
 	{ MODKEY,                       XK_a,                incnmaster,     {.i = -1} },
-	/* hyprland SUPER+ALT+h/l: move window to left/right monitor */
-	{ MODKEY|Mod1Mask,              XK_h,                tagmon,         {.i = -1} },
-	{ MODKEY|Mod1Mask,              XK_l,                tagmon,         {.i = +1} },
+	/* directional window move, swapping clients or crossing monitors */
+	{ MODKEY|Mod1Mask,              XK_h,                movedir,        {.i = DirLeft} },
+	{ MODKEY|Mod1Mask,              XK_l,                movedir,        {.i = DirRight} },
+	{ MODKEY|Mod1Mask,              XK_k,                movedir,        {.i = DirUp} },
+	{ MODKEY|Mod1Mask,              XK_j,                movedir,        {.i = DirDown} },
 	/* monitors: each monitor keeps its own tag set */
 	TAGKEYS(                        XK_1,                0),
 	TAGKEYS(                        XK_2,                1),
