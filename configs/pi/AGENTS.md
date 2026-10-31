@@ -11,9 +11,6 @@
 - For browser use use playwright mcp connect to it first though.
 - This is a hard rule, not a suggestion. Replace any instinct to use `find`/`grep` immediately.
 - We're on NixOS
-- YOU CANNOT READ IMAGES.
-- NEVER ATTEMPT TO READ IMAGES.
-- YOU CAN USE INSPECT IMAGE TOOL INSTEAD
 - Upon completing your work, spawn a subagent to do a full and thorough quality pass through it for any remaining bugs, issues or QoL improvements
 
 Use `ketch` for external research — web pages, OSS code, library docs.

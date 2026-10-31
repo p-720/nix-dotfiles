@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# xterm-foot — xterm dressed like ~/.config/foot/foot.ini: foot's default
+# starlight palette, monospace size 11, tmux as the shell.
+# foot is wayland-only here and alacritty wants a GPU; xterm is plain X11
+# and renders on the CPU. Extra xterm flags go before -e.
+exec xterm \
+    -fa monospace -fs 11 \
+    -xrm '*foreground: #839496' \
+    -xrm '*background: #002b36' \
+    -xrm '*cursorColor: #839496' \
+    -xrm '*color0: #242424' \
+    -xrm '*color1: #f62b5a' \
+    -xrm '*color2: #47b413' \
+    -xrm '*color3: #e3c401' \
+    -xrm '*color4: #24acd4' \
+    -xrm '*color5: #f2affd' \
+    -xrm '*color6: #13c299' \
+    -xrm '*color7: #e6e6e6' \
+    -xrm '*color8: #616161' \
+    -xrm '*color9: #ff4d51' \
+    -xrm '*color10: #35d450' \
+    -xrm '*color11: #e9e836' \
+    -xrm '*color12: #5dc5f8' \
+    -xrm '*color13: #feabf2' \
+    -xrm '*color14: #24dfc4' \
+    -xrm '*color15: #ffffff' \
+    -xrm '*highlightColor: #073642' \
+    -xrm '*highlightTextColor: #839496' \
+    -xrm '*scrollBar: false' \
+    -xrm '*saveLines: 10000' \
+    "$@" -e tmux
