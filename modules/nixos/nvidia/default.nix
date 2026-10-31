@@ -13,6 +13,9 @@ in {
     };
   };
   config = mkIf cfg.enable {
+    # kernel driver still comes from hardware.nvidia; Xorg uses modesetting
+    hardware.nvidia-container-toolkit.suppressNvidiaDriverAssertion = true;
+    environment.systemPackages = [ config.hardware.nvidia.package.bin ];
     environment.etc."nvidia/nvidia-application-profiles-rc.d/50-limit-free-buffer-pool-in-wayland-compositors.json".text = builtins.toJSON {
       rules = [
         { pattern = { feature = "procname"; matches = "Hyprland"; }; profile = "No VidMem Reuse"; }

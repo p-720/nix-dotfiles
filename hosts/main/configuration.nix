@@ -7,16 +7,6 @@
 {
   imports = [ ./hardware-configuration.nix ];
   modules.flakes.enable = true;
-  # boot this instead of the default to run Xorg without the NVIDIA X driver
-  specialisation.software-xorg.configuration = {
-    services.xserver.videoDrivers = pkgs.lib.mkForce [ "modesetting" ];
-    hardware.nvidia-container-toolkit.suppressNvidiaDriverAssertion = true;
-    services.xserver.deviceSection = pkgs.lib.mkForce ''
-      Option "AccelMethod" "none"
-    '';
-    environment.sessionVariables.LIBGL_ALWAYS_SOFTWARE = "1";
-  };
-
   modules.maestral.enable = true;
   # modules.gpu-screen-recorder.enable = true;
 
@@ -192,9 +182,7 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
 
   services.xserver = {
     enable = true;
-    videoDrivers = [
-      "nvidia" # "amdgpu"
-    ];
+    videoDrivers = [ "modesetting" ];
     dpi = 96;
     xrandrHeads = [{
       output = "HDMI-1";
@@ -235,10 +223,9 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
       layout = "us,ru";
       options = "grp:alt_shift_toggle,compose:ralt";
     };
-    # keep Xorg from caching compositor pixmaps in VRAM
+    # software 2D: no glamor, no NVIDIA X driver
     deviceSection = ''
-      Option "AllowSHMPixmaps" "true"
-      Option "TripleBuffer" "false"
+      Option "AccelMethod" "none"
       Option "BackingStore" "false"
     '';
     serverFlagsSection = ''

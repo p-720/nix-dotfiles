@@ -13,6 +13,7 @@ let
       ./patches/noborder.diff
       ./patches/ewmhclick.diff
       ./patches/nobardrw.diff
+      ./patches/attachbottom.diff
     ];
   };
 in {
@@ -22,6 +23,11 @@ in {
 
   config = mkIf cfg.enable {
     modules.taffybar.enable = mkDefault true;
+
+    # X11 only: Wayland/Hyprland keeps hardware GL
+    services.xserver.displayManager.sessionCommands = ''
+      export LIBGL_ALWAYS_SOFTWARE=1
+    '';
 
     services.xserver.windowManager.dwm = {
       enable = true;

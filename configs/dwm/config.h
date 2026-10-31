@@ -31,6 +31,8 @@ static const char *tags[] = {
 	"1", "2", "3", "4", "5", "6",
 	"7", "8", "9", "10", "11", "12",
 };
+/* tags 1-6 start on monitor 0, 7-12 on monitor 1; movetag updates this */
+static int tagowner[LENGTH(tags)] = { 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1 };
 
 static const Rule rules[] = {
 	/* class                     instance  title       tags mask  isfloating  monitor */
@@ -149,21 +151,60 @@ monitorbyindex(int index)
 	return NULL;
 }
 
-/* tags 1-6 live on monitor 0, tags 7-12 on monitor 1 */
 static Monitor *
 tagmonitor(unsigned int mask)
 {
 	Monitor *m;
+	int idx = -1, i;
 
 	if (!mask || (mask & (mask - 1)) != 0)
 		return selmon;
-	if (mask & 0x3f)
-		m = monitorbyindex(0);
-	else if (mask & 0xfc0)
-		m = monitorbyindex(1);
-	else
+	for (i = 0; i < LENGTH(tags); i++)
+		if (mask & (1 << i)) {
+			idx = i;
+			break;
+		}
+	if (idx < 0)
 		return selmon;
+	m = monitorbyindex(tagowner[idx]);
 	return m ? m : selmon;
+}
+
+/* hyprland ALT+SUPER+1/0/2/9/minus: move workspace to monitor */
+static void
+movetag(const Arg *arg)
+{
+	Monitor *m = monitorbyindex(arg->i);
+	unsigned int tag;
+	Client *c, *next;
+	int idx = -1, i;
+
+	if (!m || m == selmon)
+		return;
+	tag = selmon->tagset[selmon->seltags];
+	for (i = 0; i < LENGTH(tags); i++)
+		if (tag & (1 << i)) {
+			idx = i;
+			break;
+		}
+	if (idx < 0)
+		return;
+
+	tagowner[idx] = arg->i;
+	m->seltags ^= 1;
+	m->tagset[m->seltags] = tag;
+
+	for (c = selmon->clients; c; c = next) {
+		next = c->next;
+		if (!(c->tags & tag))
+			continue;
+		sendmon(c, m);
+		c->tags = tag;
+	}
+
+	selmon = m;
+	focus(NULL);
+	arrange(NULL);
 }
 
 static void
@@ -474,6 +515,12 @@ static const Key keys[] = {
 	{ MODKEY|ControlMask,           XK_equal,            toggleview,     {.ui = 1 << 11} },
 	{ MODKEY|ShiftMask,             XK_equal,            tagto,          {.ui = 1 << 11} },
 	{ MODKEY|ControlMask|ShiftMask, XK_equal,            toggletag,      {.ui = 1 << 11} },
+	/* hyprland ALT+SUPER: move workspace to monitor */
+	{ MODKEY|Mod1Mask,              XK_1,                movetag,        {.i = 0} },
+	{ MODKEY|Mod1Mask,              XK_0,                movetag,        {.i = 0} },
+	{ MODKEY|Mod1Mask,              XK_2,                movetag,        {.i = 1} },
+	{ MODKEY|Mod1Mask,              XK_9,                movetag,        {.i = 1} },
+	{ MODKEY|Mod1Mask,              XK_minus,            movetag,        {.i = 2} },
 	/* media */
 	{ 0, XF86XK_AudioRaiseVolume, spawn, SHCMD("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+") },
 	{ 0, XF86XK_AudioLowerVolume, spawn, SHCMD("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-") },
