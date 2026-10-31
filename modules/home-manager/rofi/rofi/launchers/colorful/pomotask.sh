@@ -33,8 +33,11 @@ cat > $dir/colors.rasi <<- EOF
 	}
 EOF
 
-if [ $XDG_SESSION_TYPE == "wayland" ]; then
+if [ "${XDG_SESSION_TYPE:-}" = "wayland" ]; then
 	rofi -no-lazy-grab -show pomotask -modes "pomotask:$dir/pomotask-backend.py" -theme $dir/"$theme"
 else
-	rofi -m -1 -show pomotask -modes "pomotask:$dir/pomotask-backend.py" -theme $dir/"$theme"
+	monitor="$("$HOME/.config/rofi/bin/focused-monitor" 2>/dev/null || true)"
+	monitor_args=()
+	[ -n "$monitor" ] && monitor_args=(-m "$monitor")
+	rofi "${monitor_args[@]}" -show pomotask -modes "pomotask:$dir/pomotask-backend.py" -theme $dir/"$theme"
 fi

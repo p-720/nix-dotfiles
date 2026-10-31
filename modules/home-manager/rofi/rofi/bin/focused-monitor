@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Map the focused X11 window to its xrandr output name for rofi -m.
+set -u
+
+win="$(xdotool getactivewindow 2>/dev/null || true)"
+if [ -z "${win:-}" ] || [ "$win" = "0" ]; then
+  win="$(xdotool getwindowfocus 2>/dev/null || true)"
+fi
+
+WIDTH=""
+if [ -n "${win:-}" ] && [ "$win" != "0" ]; then
+  eval "$(xdotool getwindowgeometry --shell "$win" 2>/dev/null)" || true
+fi
+
+if [ -n "${WIDTH:-}" ] && [ "${WIDTH:-0}" -gt 0 ]; then
+  cx=$(( ${X:-0} + WIDTH / 2 ))
+  cy=$(( ${Y:-0} + HEIGHT / 2 ))
+else
+  eval "$(xdotool getmouselocation --shell 2>/dev/null)" || true
+  cx=${X:-0}
+  cy=${Y:-0}
+fi
+
+xrandr --query 2>/dev/null | awk -v x="$cx" -v y="$cy" '
+  $2 == "connected" {
+    for (i = 1; i <= NF; i++) {
+      if ($i ~ /^[0-9]+x[0-9]+\+[0-9]+\+[0-9]+$/) {
+        split($i, g, /[x+]/)
+        w = g[1]; h = g[2]; mx = g[3]; my = g[4]
+        if (x >= mx && x < mx + w && y >= my && y < my + h) {
+          print $1
+          found = 1
+          exit
+        }
+        d = (x - mx) * (x - mx) + (y - my) * (y - my)
+        if (best == "" || d < bestd) {
+          best = $1
+          bestd = d
+        }
+        break
+      }
+    }
+  }
+  END {
+    if (!found && best != "")
+      print best
+  }
+'

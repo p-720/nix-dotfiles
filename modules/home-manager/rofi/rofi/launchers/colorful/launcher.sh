@@ -47,8 +47,11 @@ EOF
 # comment these lines to disable random style
 # themes=($(ls -p --hide="launcher.sh" --hide="colors.rasi" $dir))
 # theme="${themes[$(( $RANDOM % 12 ))]}"
-if [ $XDG_SESSION_TYPE == "wayland" ]; then
+if [ "${XDG_SESSION_TYPE:-}" = "wayland" ]; then
 	rofi  -no-lazy-grab -show drun -modi run,drun -theme $dir/"$theme"
 else
-	rofi -m -1 -no-lazy-grab -show drun -modi run,drun -theme $dir/"$theme"
+	monitor="$("$HOME/.config/rofi/bin/focused-monitor" 2>/dev/null || true)"
+	monitor_args=()
+	[ -n "$monitor" ] && monitor_args=(-m "$monitor")
+	rofi "${monitor_args[@]}" -no-lazy-grab -show drun -modi run,drun -theme $dir/"$theme"
 fi
