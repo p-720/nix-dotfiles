@@ -225,6 +225,12 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
       layout = "us,ru";
       options = "grp:alt_shift_toggle,compose:ralt";
     };
+    # keep Xorg from caching compositor pixmaps in VRAM
+    deviceSection = ''
+      Option "AllowSHMPixmaps" "true"
+      Option "TripleBuffer" "false"
+      Option "BackingStore" "false"
+    '';
     serverFlagsSection = ''
       Option "BlankTime" "1"
       Option "StandbyTime" "1"

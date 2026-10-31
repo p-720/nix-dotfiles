@@ -1,0 +1,17 @@
+--- a/dwm.c	2026-10-31 18:28:31.585095931 +0300
++++ b/dwm.c	2026-10-31 18:28:31.601424231 +0300
+@@ -529,6 +529,14 @@
+ 	XClientMessageEvent *cme = &e->xclient;
+ 	Client *c = wintoclient(cme->window);
+ 
++	if (cme->message_type == netatom[NetCurrentDesktop]) {
++		if (cme->data.l[0] >= 0 && cme->data.l[0] < (long)LENGTH(tags)) {
++			Arg a = { .ui = 1 << cme->data.l[0] };
++			viewtag(&a);
++		}
++		return;
++	}
++
+ 	if (!c)
+ 		return;
+ 	if (cme->message_type == netatom[NetWMState]) {

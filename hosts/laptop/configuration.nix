@@ -30,12 +30,12 @@
   };
   services.nanobanana.enable = true;
   pomotasker.enable = true;
-  systemd.sleep.extraConfig = ''
-    AllowSuspend=no
-    AllowHibernation=no
-    AllowHybridSleep=no
-    AllowSuspendThenHibernate=no
-  '';
+  systemd.sleep.settings.Sleep = {
+    AllowSuspend = "no";
+    AllowHibernation = "no";
+    AllowHybridSleep = "no";
+    AllowSuspendThenHibernate = "no";
+  };
   # services.tlp = {
   #   enable = true;
   #   settings = {
@@ -259,9 +259,7 @@
   nix.gc.automatic = true;
   nix.gc.options = "--delete-older-than 1d";
 
-  systemd.coredump.extraConfig = ''
-    Storage=none
-  '';
+  systemd.coredump.settings.Coredump.Storage = "none";
 
   modules.xdg.sessionVariables = true;
   modules.fonts.enable = true;

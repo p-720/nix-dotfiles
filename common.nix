@@ -356,8 +356,8 @@
     ".ideavimrc" = { source = ./configs/ideavim/.ideavimrc; };
 
     ".intellimacs" = {
-      source = ./configs/ideavim/.intellimacs;
-      recursive = true;
+      # submodule is not in the flake source; link the live checkout
+      source = config.lib.file.mkOutOfStoreSymlink /etc/nixos/configs/ideavim/.intellimacs;
     };
     ".config/uair".source =
       config.lib.file.mkOutOfStoreSymlink /etc/nixos/configs/uair;

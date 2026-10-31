@@ -63,7 +63,11 @@
   modules.gpu-screen-recorder.enable = true;
   services.libinput = {
     enable = true;
-    mouse = { accelProfile = "flat"; };
+    # hyprland input: accel_profile = flat, sensitivity = 0
+    mouse = {
+      accelProfile = "flat";
+      accelSpeed = "0";
+    };
   };
   i18n = {
     defaultLocale = "en_US.UTF-8";
@@ -133,6 +137,7 @@
     # };
   };
   modules.hypr.enable = true;
+  modules.dwm.enable = true;
 
   security.sudo = {
     enable = true;

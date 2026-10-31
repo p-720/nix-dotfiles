@@ -1,0 +1,11 @@
+--- a/dwm.c	2026-10-31 18:32:18.860319255 +0300
++++ b/dwm.c	2026-10-31 18:32:18.874829675 +0300
+@@ -1127,7 +1127,7 @@
+ 	updatebarpos(m);
+ 	arrange(m);
+ 	XSelectInput(dpy, win, EnterWindowMask|FocusChangeMask|PropertyChangeMask|StructureNotifyMask);
+-	XMoveResizeWindow(dpy, win, wa->x, wa->y, wa->width, wa->height);
++	XMoveResizeWindow(dpy, win, m->mx, topbar ? m->my : m->my + m->mh - wa->height, m->mw, wa->height);
+ 	XMapWindow(dpy, win);
+ 	XChangeProperty(dpy, root, netatom[NetClientList], XA_WINDOW, 32, PropModeAppend,
+ 		(unsigned char *) &win, 1);
