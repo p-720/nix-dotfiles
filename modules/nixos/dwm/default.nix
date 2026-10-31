@@ -44,6 +44,10 @@ in {
         else
           ${pkgs.feh}/bin/feh --bg-fill /etc/nixos/light.jpg
         fi
+        # 0 = LG, 2560 = AOC, 4480 = dummy/forced EDID
+        ${pkgs.xorg.xrandr}/bin/xrandr --output DP-1 --mode 2560x1080 --pos 0x0 --primary 2>/dev/null || true
+        ${pkgs.xorg.xrandr}/bin/xrandr --output HDMI-1 --mode 1920x1080 --pos 2560x0 2>/dev/null || true
+        ${pkgs.xorg.xrandr}/bin/xrandr --output HDMI-2 --mode 1800x1080 --pos 4480x0 2>/dev/null || true
         (rm -f ~/.cache/status-notifier-item/*.json; status-notifier-watcher) &
         (while xset q >/dev/null 2>&1; do taffybar; sleep 2; done) &
       '';

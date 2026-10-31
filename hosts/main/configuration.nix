@@ -184,40 +184,6 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
     enable = true;
     videoDrivers = [ "modesetting" ];
     dpi = 96;
-    xrandrHeads = [{
-      output = "HDMI-1";
-      monitorConfig = ''
-        Option "UseDisplayDevice" "none"
-        Option "Ignore" "true"
-      '';
-    }
-
-    # {
-    #   output = "DP-4";
-    #   primary = true;
-    #   monitorConfig = ''
-    #     Modeline "2560x1080_75.00"  294.00  2560 2744 3016 3472  1080 1083 1093 1130 -hsync +vsync
-    #     Modeline "2560x1080_74.99"  294.00  2560 2744 3016 3472  1080 1083 1093 1130 -hsync +vsync
-    #     Modeline "2560x1080@75"  228.25  2560 2608 2640 2720  1080 1083 1093 1119 +hsync -vsync
-    #     Option "PreferredMode" "2560x1080@75"'';
-    # }
-    # {
-    #   output = "DVI-D-0";
-    #   monitorConfig = ''
-    #     Option "Position" "2560 0"
-    #     Option          "TearFree" "true"
-    #   '';
-    # }
-    # {
-    #         output = "HDMI-A-0";
-    #         monitorConfig = ''
-    #          Modeline "2000x1000_60.00"  166.25  2000 2128 2336 2672  1000 1003 1013 1038 -hsync +vsync
-    #          Option "PreferredMode" "2000x1000_60.00"
-    #          Option "Position" "0 1080"
-    # '';
-    #       }
-      ];
-
     # Doesnt work
     xkb = {
       layout = "us,ru";
