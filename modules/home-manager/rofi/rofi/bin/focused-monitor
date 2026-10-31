@@ -2,13 +2,18 @@
 # Map the focused X11 window to its xrandr output name for rofi -m.
 set -u
 
-win="$(xdotool getactivewindow 2>/dev/null || true)"
+root_hex="$(xwininfo -root 2>/dev/null | awk '/Window id:/{print $4; exit}')"
+root_dec=$(( ${root_hex:-0} ))
+
+# getwindowfocus is the real input focus; getactivewindow can be stale or unset
+win="$(xdotool getwindowfocus 2>/dev/null || true)"
+[ "$win" = "$root_dec" ] && win=""
 if [ -z "${win:-}" ] || [ "$win" = "0" ]; then
-  win="$(xdotool getwindowfocus 2>/dev/null || true)"
+  win="$(xdotool getactivewindow 2>/dev/null || true)"
 fi
 
 WIDTH=""
-if [ -n "${win:-}" ] && [ "$win" != "0" ]; then
+if [ -n "${win:-}" ] && [ "$win" != "0" ] && [ "$win" != "$root_dec" ]; then
   eval "$(xdotool getwindowgeometry --shell "$win" 2>/dev/null)" || true
 fi
 
