@@ -7,6 +7,16 @@
 {
   imports = [ ./hardware-configuration.nix ];
   modules.flakes.enable = true;
+  # boot this instead of the default to run Xorg without the NVIDIA X driver
+  specialisation.software-xorg.configuration = {
+    services.xserver.videoDrivers = pkgs.lib.mkForce [ "modesetting" ];
+    hardware.nvidia-container-toolkit.suppressNvidiaDriverAssertion = true;
+    services.xserver.deviceSection = pkgs.lib.mkForce ''
+      Option "AccelMethod" "none"
+    '';
+    environment.sessionVariables.LIBGL_ALWAYS_SOFTWARE = "1";
+  };
+
   modules.maestral.enable = true;
   # modules.gpu-screen-recorder.enable = true;
 
