@@ -36,5 +36,5 @@ EOF
 if [ $XDG_SESSION_TYPE == "wayland" ]; then
 	rofi -no-lazy-grab -show pomotask -modes "pomotask:$dir/pomotask-backend.py" -theme $dir/"$theme"
 else
-	rofi -show pomotask -modes "pomotask:$dir/pomotask-backend.py" -theme $dir/"$theme"
+	rofi -m -1 -show pomotask -modes "pomotask:$dir/pomotask-backend.py" -theme $dir/"$theme"
 fi
