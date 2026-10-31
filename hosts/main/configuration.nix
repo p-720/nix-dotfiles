@@ -182,7 +182,9 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
 
   services.xserver = {
     enable = true;
-    videoDrivers = [ "modesetting" ];
+    # nvidia in the list enables the nvidia kernel module for CUDA/nvidia-smi;
+    # modesetting is first so Xorg still uses the software 2D path
+    videoDrivers = [ "modesetting" "nvidia" ];
     dpi = 96;
     # Doesnt work
     xkb = {
