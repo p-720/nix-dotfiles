@@ -12,6 +12,7 @@ let
       ./patches/altbarfit.diff
       ./patches/noborder.diff
       ./patches/ewmhclick.diff
+      ./patches/nobardrw.diff
     ];
   };
 in {

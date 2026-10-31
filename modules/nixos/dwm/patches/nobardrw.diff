@@ -1,0 +1,21 @@
+--- a/dwm.c	2026-10-31 19:14:46.683952341 +0300
++++ b/dwm.c	2026-10-31 19:14:46.698213153 +0300
+@@ -583,7 +583,8 @@
+ 		sw = ev->width;
+ 		sh = ev->height;
+ 		if (updategeom() || dirty) {
+-			drw_resize(drw, sw, bh);
++			if (!usealtbar)
++				drw_resize(drw, sw, bh);
+ 			updatebars();
+ 			for (m = mons; m; m = m->next) {
+ 				for (c = m->clients; c; c = c->next)
+@@ -1633,7 +1634,7 @@
+ 	sw = DisplayWidth(dpy, screen);
+ 	sh = DisplayHeight(dpy, screen);
+ 	root = RootWindow(dpy, screen);
+-	drw = drw_create(dpy, screen, root, sw, sh);
++	drw = drw_create(dpy, screen, root, sw, usealtbar ? 1 : sh);
+ 	if (!drw_fontset_create(drw, fonts, LENGTH(fonts)))
+ 		die("no fonts could be loaded.");
+ 	lrpad = drw->fonts->h;
