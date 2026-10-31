@@ -14,21 +14,28 @@ in {
       '';
     };
   };
-  config = mkIf cfg.enable {
+  # NOTE parens matter: `mkIf en {...} // x` drops x (mkIf wraps the whole
+  # attrset and swallows merged siblings); `mkIf en ({...} // x)` keeps it
+  config = mkIf cfg.enable ({
     services.xserver = {
       windowManager.xmonad = {
         enable = true;
         enableContribAndExtras = true;
       };
-      displayManager = { defaultSession = "none+xmonad"; };
+      displayManager = {
+        # common.nix defines defaultSession ("hyprland") for every host;
+        # mkForce or the two definitions conflict
+        defaultSession = mkForce "none+xmonad";
+      };
     };
-  } // (my.allUsers ({}: {
+  } // (my.allUsers ({ config, ... }: {
     home.file = {
-      ".xmonad/lib".source = config.lib.file.mkOutOfStoreSymlink /etc/nixos/modules/nixos/xmonad/lib;
+      ".xmonad/lib".source =
+        config.lib.file.mkOutOfStoreSymlink /etc/nixos/modules/nixos/xmonad/lib;
 
       ".xmonad/xmonad.hs" = {
         source = config.lib.file.mkOutOfStoreSymlink /etc/nixos/modules/nixos/xmonad/xmonad.hs;
       };
     };
-  }));
+  })));
 }

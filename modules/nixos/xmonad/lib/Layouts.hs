@@ -2,21 +2,15 @@
 module Layouts where
 
 import XMonad
+import DragSplit (dragSplit)
 import XMonad.Hooks.ManageDocks
 import XMonad.Layout.BoringWindows
-import XMonad.Layout.LayoutModifier (ModifiedLayout)
-import XMonad.Layout.LimitWindows (limitWindows)
-import XMonad.Layout.Magnifier (magnifiercz')
 import XMonad.Layout.Minimize
-import XMonad.Layout.MultiColumns
 import XMonad.Layout.NoBorders
 import XMonad.Layout.PerWorkspace
-import XMonad.Layout.Reflect (reflectHoriz)
+import XMonad.Layout.SimplestFloat (simplestFloat)
 import XMonad.Layout.Tabbed
 import XMonad.Layout.ThreeColumns
-import XMonad.Layout.TwoPane
-import XMonad.Layout.SimpleFloat
-import XMonad.Layout.SimplestFloat (simplestFloat)
 
 myTabConfig =
   def
@@ -32,40 +26,26 @@ myTabConfig =
       fontName = "xft:Noto Sans CJK:size=10:antialias=true"
     }
 
--- Choose
---   (ModifiedLayout LimitWindows (ModifiedLayout Magnifier Tall))
---   (Choose
---      (ModifiedLayout
---         (Decoration TabbedDecoration DefaultShrinker) Simplest)
---      (ModifiedLayout LimitWindows (ModifiedLayout Magnifier ThreeCol)))
--- Window -> b
--- host specific
--- https://hackage.haskell.org/package/xmonad-contrib-0.17.1/docs/XMonad-Layout-OnHost.html
+modifiers = lessBorders Screen . avoidStrutsOn [D] . (minimize . boringAuto)
 
--- modifiers :: l -> ModifiedLayout m l a
-modifiers = lessBorders Screen . avoidStrutsOn [D] . (minimize . boringAuto) -- TODO generic type signature
+-- separate binding on purpose: no signature + monomorphism restriction means
+-- each modifiers* alias pins one concrete layout type
+modifiersFfTg = lessBorders Screen . avoidStrutsOn [D] . (minimize . boringAuto)
 
-modifiers2 = lessBorders Screen . avoidStrutsOn [D] . (minimize . boringAuto) -- ??????????????????
-
-modifiers3 = lessBorders Screen . avoidStrutsOn [D] . (minimize . boringAuto) -- ??????????????????
-
-
+-- hyprland ran the master layout (mfact 0.70, master on the left);
+-- Tall is the same shape, mirror tiled flips it for emacs-style frames.
+-- workspace 11 is hyprland's "ff-tg": firefox 20% on the left, telegram
+-- taking the larger slice of the rest
+-- the corner handle drags the split, so a corner resize stays tiled and
+-- the neighbouring window reflows instead of leaving a hole
 myLayout =
-  onWorkspace "1_10" (stackTile ||| Full) $
-  onWorkspace "1_6" (simplestFloat ||| Full) $
-    onWorkspaces ["0_" ++ show b | b <- [1 .. 5]] (modifiers2 (reflectHoriz tiled ||| threeCol ||| tabbedBottom shrinkText myTabConfig)) $
-      modifiers (tiled ||| tabbedBottom shrinkText myTabConfig ||| simplestFloat)
+  dragSplit $
+    onWorkspace "1_11" (modifiersFfTg (ThreeCol 1 delta 0.2 ||| Full)) $
+      modifiers (tiled ||| Mirror tiled ||| tabbedBottom shrinkText myTabConfig ||| simplestFloat)
         ||| Full
   where
-    stackTile = modifiers3 $ reflectHoriz (Tall 1 0.03 0.5)
-
-    columns = multiCol [1] 1 0.01 0.5
-
-    tiled = limitWindows 3 $ Tall nmaster delta ratio
-    threeCol = ThreeColMid nmaster delta 0.5
+    tiled = Tall nmaster delta ratio
 
     nmaster = 1
-    ratio = 0.7
+    ratio = 0.70
     delta = 3 / 100
-
--- drawer = Layout.drawer 0.0 0.4 (ClassName "Spotify" `Or` ClassName "Telegram" `Or` ClassName "Org.gnome.Nautilus") Full

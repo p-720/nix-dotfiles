@@ -1,155 +1,213 @@
-@import url("gotham.css");
-@define-color transparent rgba(0.0, 0.0, 0.0, 0.0);
-@define-color white #FFFFFF;
-@define-color black #000000;
+/* Waybar palette, copied from configs/waybar/style.css so the xmonad bar
+   and the hyprland bar read as the same bar. */
 
-/* Top level styling */
+.taffy-window {
+	background-color: transparent;
+	color: #ffffff;
+}
 
 .taffy-window * {
-	font-family: "Noto Sans", sans-serif;
-	font-size: 12pt;
-	font-weight: 800;
-	color: @font-color;
-	text-shadow: 1px 1px @font-shadow-color;
-}
-
-.taffy
--box {
-	border-color: @white;
-	border-style: solid;
-	background-color: @bar-background;
-	padding: 3px;
-	margin: 4px;
-	border-radius: 4px;
-}
-/* HACK */
-/* FIX in Context.hs centerBox expansion to all available space */
-.center-box{
-
-	padding-left: 450px;
-	padding-right: 450px;
-}
-
-.contents {
-	padding: 2px;
-	transition: background-color .5s;
-	opacity: 1;
-}
-
-/* Workspaces styling */
-
-.workspaces .inner-pad {
-	box-shadow: none;
-	border-width: 0;
-}
-
-.workspaces .contents {
-	box-shadow: none;
-	border-radius: 4px;
-	border-width: 1px;
-	border-style: solid;
-	border-color: @transparent;
-}
-
-.workspace-label {
-	padding-right: 4px;
-	padding-left: 2px;
-	padding-top: 0px;
-	font-size: 10pt;
-	opacity: 1;
-	font-weight: bold;
-	transition: color .5s;
-}
-
-.contents .window-icon {
-	border-width: 1px;
-}
-
-.active .contents .window-icon {
-	opacity: 1;
-}
-
-.active .contents {
-	background-color: rgba(255.0, 255.0, 255.0, 0.2);
-	opacity: 1;
-}
-
-.overlay-box {
-	transition: background-color .5s;
-}
-
-.active .overlay-box {
-	padding: 0px;
-	/* background-color: rgba(0, 0, 0, 1.0); */
-	border-color: @white;
-	border-width: 3px;
-	opacity: 1;
-}
-
-.visible .contents {
-	border-color: @white;
-}
-
-.window-icon-container {
-	transition: opacity .5s, box-shadow .5s;
-	opacity: 1;
-	border-radius: 5px;
-	transition: background-color 1s;
-}
-
-/* This gives space for the box-shadow (they look like underlines) that follow.
-   This will actually affect all widgets, (not just the workspace icons), but
-   that is what we want since we want the icons to look the same. */
-.auto-size-image, .sni-tray  {
-	padding: 1px;
-}
-
-.window-icon-container.active {
-	background-color: rgba(255.0, 255.0, 255.0, 0.4);
-}
-
-.window-icon-container.urgent {
-}
-
-.window-icon-container.minimized .window-icon {
-	opacity: .3;
-}
-
-.window-icon {
-	opacity: 1;
-	transition: opacity .5s;
-}
-
-/* Button styling */
-
-button {
-	all: initial;
-	background-color: @transparent;
-	border-width: 0px;
-	border-radius: 0px;
-}
-
-button:checked, button:hover .Contents:hover {
-	box-shadow: inset 0 -3px @accent;
-}
-
-/* Menu styling */
-
-/* The ".taffy-window" prefixed selectors are needed because if they aren't present,
-   the top level .Taffybar selector takes precedence */
-.taffy-window menuitem *,  menuitem * {
-	color: @menu-font-color;
+	font-family: "ShureTechMono Nerd Font";
+	font-size: 16px;
+	font-weight: normal;
+	color: #ffffff;
 	text-shadow: none;
 }
 
-.taffy-window menuitem, menuitem {
-	background-color: @menu-background-color;
+.taffy-box {
+	background-color: rgba(0, 0, 0, 0.5);
+	border: none;
+	border-radius: 0;
+	padding: 0;
+	margin: 0;
 }
 
-.taffy-window menuitem:hover, menuitem:hover {
-	background-color: @menu-highlight;
+.center-box {
+	padding: 0;
 }
 
-.taffy-window menuitem:hover > label, menuitem:hover > label {
-	color: @white;
+/* Waybar's generic module block: #clock, #memory, #disk, #pulseaudio, ... */
+.module {
+	border-radius: 2px;
+	background-color: transparent;
+}
+
+.memory {
+	background-color: #9b59b6;
+}
+
+.disk {
+	background-color: #964b00;
+}
+
+.pulseaudio.muted {
+	background-color: #90b1b1;
+}
+
+.pulseaudio.muted label {
+	color: #2a5c45;
+}
+
+.pomotask {
+	background-color: #313244;
+}
+
+/* Workspaces */
+
+.workspaces {
+	padding: 0;
+	background-color: transparent;
+}
+
+.workspaces .inner-pad,
+.workspaces .outer-pad {
+	padding: 0;
+}
+
+.workspace-wrapper {
+	padding: 0;
+	margin: 0;
+}
+
+.workspace-button {
+	padding: 0;
+	margin: 0;
+	background-color: transparent;
+	border: none;
+	border-radius: 0;
+	box-shadow: none;
+}
+
+.workspace-button .contents {
+	padding: 3px 10px;
+	margin: 0;
+	background-color: transparent;
+	border: none;
+	border-radius: 2px;
+	box-shadow: none;
+}
+
+.workspace-label {
+	padding: 0;
+	font-size: 16px;
+	font-weight: normal;
+}
+
+.active .contents {
+	background-color: #51afef;
+}
+
+.active .workspace-label {
+	color: #2a2e38;
+}
+
+.urgent .contents {
+	background-color: #7bc275;
+}
+
+.urgent .workspace-label {
+	color: #2a2e38;
+}
+
+.visible .contents {
+	background-color: transparent;
+}
+
+.workspace-button:hover .contents {
+	background-color: #5cefff;
+}
+
+.workspace-button:hover .workspace-label {
+	color: #2a2e38;
+}
+
+.window-icon-container {
+	padding: 0 2px;
+	background-color: transparent;
+	box-shadow: none;
+}
+
+.window-icon-container.active,
+.window-icon-container.urgent {
+	background-color: transparent;
+	box-shadow: none;
+}
+
+/* Idle inhibitor: waybar gives the active state a light block. */
+
+.idle_inhibitor.idle-inhibitor-active {
+	background-color: #ecf0f1;
+}
+
+.idle_inhibitor.idle-inhibitor-active label {
+	color: #2d3436;
+}
+
+/* Inner widgets do not add their own spacing; the module wrapper owns it. */
+
+.audio .icon {
+	margin-right: 4px;
+}
+
+
+.pulse-audio,
+.audio,
+.sni-tray,
+.text-clock,
+.disk-usage,
+.command-runner,
+.polling-label,
+.polling-label-container {
+	padding: 0;
+	margin: 0;
+}
+
+button {
+	padding: 0;
+	background-image: none;
+	background-color: transparent;
+	border: none;
+	border-radius: 0;
+	box-shadow: none;
+}
+
+/* Tooltip */
+
+tooltip.background {
+	background-color: rgba(20, 20, 20, 0.9);
+	border: 1px solid rgba(166, 227, 161, 0.3);
+	border-radius: 8px;
+}
+
+tooltip label {
+	font-family: "ShureTechMono Nerd Font";
+	font-size: 15px;
+	padding: 10px;
+	color: #ffffff;
+}
+
+/* Tray menus stay readable on the dark bar. */
+
+menu {
+	background-color: #11151c;
+	border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+menuitem {
+	padding: 4px 8px;
+}
+
+menuitem label,
+.taffy-window menuitem label {
+	color: #ffffff;
+}
+
+menuitem:hover,
+.taffy-window menuitem:hover {
+	background-color: #51afef;
+}
+
+menuitem:hover label,
+.taffy-window menuitem:hover label {
+	color: #2a2e38;
 }

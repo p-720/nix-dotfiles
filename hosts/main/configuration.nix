@@ -235,15 +235,8 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
     #      Option          "TearFree" "true"
     # '';
     exportConfiguration = true;
-    windowManager.i3 = {
-      enable = true;
-      package = pkgs.i3;
-      # .overrideAttrs(oldAttrs: rec {
-      #   src = /mnt/md127/i3;
-      #   dontCheck = true;
-      #   doCheck = false;
-      # })
-    };
+    # replaced by xmonad (modules.xmonad below)
+    windowManager.i3.enable = false;
     # windowManager.i3.package = (import (builtins.fetchTarball {
     #     url = "https://github.com/NixOS/nixpkgs/archive/79b3d4bcae8c7007c9fd51c279a8a67acfa73a2a.tar.gz";
     # }) {}).i3;
@@ -286,6 +279,7 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
   # Define a user account. Don't forget to set a password with ‘passwd’.
   # TODO Move to home manager user config?
   modules.sway.enable = false;
+  modules.xmonad.enable = true;
   modules.ilzabot.enable = false;
   modules.hjkl.enable = false;
   modules.printing3d.enable = true;
@@ -566,7 +560,7 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
   programs.ydotool.enable = true;
 
   # environment.sessionVariables.NAUTILUS_EXTENSION_DIR = "${config.system.path}/lib/nautilus/extensions-4";
-  modules.taffybar.enable = false;
+  modules.taffybar.enable = true;
   environment.systemPackages = with pkgs; [
     # omnisharp-roslyn
     # roslyn-ls
@@ -831,8 +825,10 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
     unstable.anki-bin
     # unstable.antigravity
     my.antigravity-manager
-    compfy
-    picom
+    # compositors off for now: both ship xdg autostart entries and race
+    # each other (compfy wins, reads the old picom.conf and paints black)
+    # compfy
+    # picom
     my.photocraft
     my.vectorcraft
     grok-bot
@@ -980,6 +976,8 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
     # pythonPackages.pip
     anydesk
     feh
+    # X11 locker for SUPER+SHIFT+L; hyprlock only works under wayland
+    i3lock
     eog
     # dmenu
     gnome-disk-utility

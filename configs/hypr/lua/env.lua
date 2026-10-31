@@ -11,6 +11,8 @@ hl.config({
         "MOZ_ENABLE_WAYLAND,1",
         "QT_QPA_PLATFORMTHEME,gnome",
         "QT_QPA_PLATFORM,wayland",
+        "LIBGL_ALWAYS_SOFTWARE,1",
+        "WLR_RENDERER_ALLOW_SOFTWARE,1",
         "ANKI_WAYLAND,1",
         "XDG_SESSION_TYPE,wayland",
     }

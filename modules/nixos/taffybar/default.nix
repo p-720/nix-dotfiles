@@ -12,7 +12,9 @@ in {
       '';
     };
   };
-  config = mkIf cfg.enable {
+  # NOTE parens matter: `mkIf en {...} // x` drops x (mkIf wraps the whole
+  # attrset and swallows merged siblings); `mkIf en ({...} // x)` keeps it
+  config = mkIf cfg.enable ({
     systemd.user.services.gtk-sni-tray = {
       enable = true;
       description = "Gtk sni tray";
@@ -22,15 +24,20 @@ in {
           "${pkgs.haskellPackages.status-notifier-item}/bin/status-notifier-watcher";
       };
     };
-  } // (my.allUsers ({}: {
+    # not home.packages: home-manager's home-path is not on PATH here
+    # status-notifier-item puts status-notifier-watcher on PATH for the
+    # xmonad startup hook (taffybar's SNI tray needs a watcher)
+    environment.systemPackages = [ pkgs.taffybar pkgs.haskellPackages.status-notifier-item ];
+  } // (my.allUsers ({ config, ... }: {
+    # out-of-store links: taffybar recompiles its config while running, and a
+    # home.file source copy would freeze it at build time
     home.file = {
-      ".config/taffybar/taffybar.css" = {
-        source = ./taffybar.css;
-      };
-
-      ".config/taffybar/gotham.css" = {
-        source = ./gotham.css;
-      };
+      ".config/taffybar/taffybar.css".source =
+        config.lib.file.mkOutOfStoreSymlink "/etc/nixos/modules/nixos/taffybar/taffybar.css";
+      ".config/taffybar/gotham.css".source =
+        config.lib.file.mkOutOfStoreSymlink "/etc/nixos/modules/nixos/taffybar/gotham.css";
+      ".config/taffybar/taffybar.hs".source =
+        config.lib.file.mkOutOfStoreSymlink "/etc/nixos/modules/nixos/taffybar/build/taffybar/taffybar.hs";
     };
-  }));
+  })));
 }

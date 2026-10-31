@@ -43,6 +43,13 @@
         "git+https://github.com/p-720/tdesktop.git?ref=refs/heads/p2d0_update&allRefs=1&submodules=1";
     };
 
+    # taffybar binary + its monorepo deps, built from the upstream flake
+    # (replaces the local cabal build in modules/nixos/taffybar/build/)
+    taffybar = {
+      url = "github:taffybar/taffybar";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     quickshell = {
       url = "git+https://git.outfoxxed.me/outfoxxed/quickshell";
 
@@ -152,6 +159,7 @@
         spl3g-config.overlays.additions
         inputs.claude-desktop-nix-flake.overlays.default
         hyprland.overlays.hyprland
+        inputs.taffybar.overlays.default
         hyprland.overlays.hyprland-packages
       ];
     in {
@@ -173,6 +181,38 @@
         default = final: prev: pkgs.my;
         # compfy = compfy;
       };
+
+      # taffybar from the upstream flake source, built against this flake's
+      # nixpkgs with haddock disabled: the flake's own packages run haddock
+      # for every monorepo dep, which costs hours and nothing for a bar.
+      # only the source-overridden packages get wrapped (lazy; a mapAttrs
+      # over the whole set forces every haskell package to evaluate)
+      # packages.x86_64-linux.taffybar =
+      #   (pkgs.extend (lib.composeExtensions
+      #     inputs.taffybar.overlays.default
+      #     (final: prev: {
+      #       haskell = prev.haskell // {
+      #         # final.haskell.lib: the package set itself has no `haskell`
+      #         # attr in 26.05's new haskell-modules layout
+      #         packageOverrides = final.lib.composeExtensions
+      #           prev.haskell.packageOverrides
+      #           (let hl = final.haskell.lib; in self: super: {
+      #             taffybar = hl.dontHaddock super.taffybar;
+      #             "my-taffybar" = hl.dontHaddock super."my-taffybar";
+      #             "dbus-hslogger" = hl.dontHaddock super."dbus-hslogger";
+      #             "dbus-menu" = hl.dontHaddock super."dbus-menu";
+      #             "gtk-scaling-image" = hl.dontHaddock super."gtk-scaling-image";
+      #             "gtk-strut" = hl.dontHaddock super."gtk-strut";
+      #             "gtk-sni-tray" = hl.dontHaddock super."gtk-sni-tray";
+      #             "gi-wireplumber" = hl.dontHaddock super."gi-wireplumber";
+      #             "status-notifier-item" = hl.dontHaddock super."status-notifier-item";
+      #             "xdg-desktop-entry" = hl.dontHaddock super."xdg-desktop-entry";
+      #             xmonad = hl.dontHaddock super.xmonad;
+      #             "xmonad-contrib" = hl.dontHaddock super."xmonad-contrib";
+      #           });
+      #       };
+      #     })
+      #   )).haskellPackages.taffybar;
       # user-modules = (lib.my.mapModulesRec' ./modules/nixos (p: pkgs.callPackage p {}));
 
       # nix eval .#tests --impure

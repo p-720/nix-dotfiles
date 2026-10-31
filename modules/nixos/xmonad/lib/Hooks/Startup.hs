@@ -10,22 +10,19 @@ import XMonad.Actions.SpawnOn
 myStartupHook =
   spawnAllOnce
     [ "pasystray",
-      -- "/usr/lib/kdeconnectd",
-      -- "~/.dropbox-dist/dropboxd",
       "dunst",
-      "my-taffybar",
+      -- must own org.kde.StatusNotifierWatcher before taffybar's SNI tray
+      -- widget starts; without it taffybar crashes in SNITray.hs. cache
+      -- cleared first: stale item bus names from a dead session make the
+      -- watcher hand out bad object paths and kill the tray build again
+      "rm -f ~/.cache/status-notifier-item/*.json; status-notifier-watcher",
+      -- supervisor loop, not bare spawn: retries the tray before the
+      -- watcher owns the name and survives a later taffybar crash. exits
+      -- when X goes away so a dead session can't leave a spinner behind
+      "while xset q >/dev/null 2>&1; do taffybar; sleep 2; done",
       "flameshot",
-      -- "emacs -nw --daemon",
-      -- "/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1",
-      "blueman-applet",
-      -- "picom --experimental-backends",
-      -- "xcompmgr",
-      "guake",
-      -- "fcitx5",
-      "redshift-gtk"
+      "blueman-applet"
     ]
-    -- <+> spawnAndDoOnce (doShift "1_10") "telegram-desktop"
-    -- <+> spawnAndDoOnce (doShift "1_10") "sleep 5;/mnt/md126/Downloads/OpenHab-linux-x64/OpenHab"
 
 spawnAllOnce xs =
   forM_ xs spawnOnce

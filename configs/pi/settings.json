@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "0.87.1",
+  "lastChangelogVersion": "1.4.0",
   "defaultProvider": "qwen38-huge",
   "defaultModel": "qwen3.8-27b",
   "defaultThinkingLevel": "xhigh",
@@ -13,9 +13,12 @@
     "npm:pi-mcp-adapter",
     "npm:@plannotator/pi-extension",
     "git:github.com/okiess/pi-opencode-go-provider@fix/context-window-merge",
-    "npm:pi-free",
-    "npm:@sting8k/pi-vcc"
+    "npm:@sting8k/pi-vcc",
+    "npm:pi-commandcode-provider"
   ],
   "hideThinkingBlock": false,
-  "theme": "dark"
+  "theme": "dark",
+  "extensions": [
+    "-builtin:mcp"
+  ]
 }

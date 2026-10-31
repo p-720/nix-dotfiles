@@ -3,9 +3,9 @@ module Hooks.ManageHook where
 
 import Data.List
 import qualified Debug.Trace
+import Hooks.Specials (claimSpecial)
 import Scratchpads
 import XMonad
-import XMonad.Hooks.DynamicProperty
 import XMonad.Hooks.InsertPosition
 import XMonad.Hooks.ManageHelpers
 import XMonad.Hooks.Place (inBounds, placeHook, simpleSmart, underMouse, withGaps)
@@ -23,11 +23,14 @@ q `contains` x = fmap (\s -> Debug.Trace.trace (show x ++ " isInfixOf " ++ show 
 myPlacement = withGaps (16, 0, 16, 0) (underMouse (0, 0))
 
 myManageHook =
+  -- claimSpecial before placeHook: <+> composes Endos right to left, so the
+  -- first hook's float wins over the generic underMouse placement
   namedScratchpadManageHook myScratchpads
+    <+> claimSpecial
     <+> placeHook myPlacement
     <+> composeAll
       [ -- https://stackoverflow.com/questions/26028146/xmonad-open-a-window-into-a-particular-tile
-        className =? "TelegramDesktop" --> doShift "1_10",
+        className =? "TelegramDesktop" --> doShift "1_11",
         className =? "TelegramDesktop" --> hasBorder False,
         className =? "tabbed" --> hasBorder False,
         className =? "discord" --> doShift "1_8",
