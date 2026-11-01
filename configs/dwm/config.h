@@ -30,13 +30,20 @@ static const char *colors[][3]      = {
 static const char *tags[] = {
 	"1", "2", "3", "4", "5", "6",
 	"7", "8", "9", "10", "11", "12",
+	"alacritty", "openai", "deepseek", "grok", "otherai", "gemini", "music", "speedcrunch", "emacs",
 };
 /* tags 1-6 start on monitor 0, 7-12 on monitor 1; movetag updates this */
-static int tagowner[LENGTH(tags)] = { 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1 };
+static int tagowner[LENGTH(tags)] = {
+	0, 0, 0, 0, 0, 0,
+	1, 1, 1, 1, 1, 1,
+	0, 0, 0, 0, 0, 0, 0, 0, 0
+};
 
 static const Rule rules[] = {
 	/* class                     instance  title       tags mask  isfloating  monitor */
 	{ "Telegram",                NULL,     NULL,       1 << 10,   0,          -1 },
+	{ "TelegramDesktop",         NULL,     NULL,       1 << 10,   0,          -1 },
+	{ "org.telegram.desktop",    NULL,     NULL,       1 << 10,   0,          -1 },
 	{ "max",                     NULL,     NULL,       1 << 11,   0,          -1 },
 	{ "Firefox",                 NULL,     NULL,       0,         0,          -1 },
 	{ "Brave-browser",           NULL,     NULL,       0,         0,          -1 },
@@ -218,6 +225,50 @@ warppointer(Client *c)
 	XFlush(dpy);
 }
 
+/* hyprland special apps; tags 13-21 are hidden scratch tags */
+static const char *special_alacritty[] = { "alacritty", NULL };
+static const char *special_openai[] = { "firefox", "--new-window", "https://chatgpt.com/", NULL };
+static const char *special_deepseek[] = { "firefox", "--new-window", "https://chat.deepseek.com/", NULL };
+static const char *special_grok[] = { "firefox", "--new-window", "https://grok.com/", NULL };
+static const char *special_otherai[] = { "firefox", "--new-window", "https://claude.ai/", NULL };
+static const char *special_gemini[] = { "firefox", "--new-window", "https://gemini.google.com", NULL };
+static const char *special_music[] = { "firefox", "--new-window", "https://open.spotify.com/", NULL };
+static const char *special_speedcrunch[] = { "speedcrunch", NULL };
+static const char *special_emacs[] = { "emacs", NULL };
+static const char **specialcmds[] = {
+	special_alacritty, special_openai, special_deepseek, special_grok,
+	special_otherai, special_gemini, special_music, special_speedcrunch,
+	special_emacs
+};
+static const char *telegram_ffcmd[] = { "firefox", "--new-window", "https://ug.kyrgyzstan.kg/pomotask/", NULL };
+static const char *telegram_tgcmd[] = {
+	"sh", "-c", "env GDK_BACKEND=x11 QT_QPA_PLATFORM=xcb WEBKIT_DISABLE_DMABUF_RENDERER=1 Telegram", NULL
+};
+
+static int
+hasclass(Monitor *m, unsigned int mask, const char *needle)
+{
+	Client *c;
+	XClassHint ch;
+
+	for (c = m->clients; c; c = c->next) {
+		if (!(c->tags & mask))
+			continue;
+		ch.res_class = ch.res_name = NULL;
+		if (XGetClassHint(dpy, c->win, &ch)) {
+			int found = (ch.res_class && strstr(ch.res_class, needle))
+				|| (ch.res_name && strstr(ch.res_name, needle));
+			if (ch.res_class)
+				XFree(ch.res_class);
+			if (ch.res_name)
+				XFree(ch.res_name);
+			if (found)
+				return 1;
+		}
+	}
+	return 0;
+}
+
 static void
 viewtag(const Arg *arg)
 {
@@ -237,9 +288,46 @@ viewtag(const Arg *arg)
 	else if (selmon->lt[selmon->sellt] == &layouts[3])
 		selmon->lt[selmon->sellt] = &layouts[0];
 	arrange(selmon);
+	/* workspace 11: hyprland launches the missing Telegram/Firefox pair */
+	if (arg->ui & (1 << 10)) {
+		if (!hasclass(selmon, 1 << 10, "irefox"))
+			spawn(&(Arg){ .v = telegram_ffcmd });
+		if (!hasclass(selmon, 1 << 10, "elegram"))
+			spawn(&(Arg){ .v = telegram_tgcmd });
+	}
 	/* follow only when the workspace moved to another monitor */
 	if (selmon != prev)
 		warppointer(selmon->sel);
+}
+
+static unsigned int specialprev[LENGTH(tags)];
+
+static void
+togglespecial(const Arg *arg)
+{
+	unsigned int mask;
+	int idx = arg->i;
+	Monitor *m = selmon;
+	Client *c;
+	Arg a;
+
+	if (!m || idx < 12 || idx >= LENGTH(tags))
+		return;
+	mask = 1u << idx;
+	if (m->tagset[m->seltags] & mask) {
+		a.ui = specialprev[idx] ? specialprev[idx] : 1u;
+		specialprev[idx] = 0;
+		viewtag(&a);
+		return;
+	}
+	specialprev[idx] = m->tagset[m->seltags];
+	tagowner[idx] = m->num;
+	a.ui = mask;
+	viewtag(&a);
+	for (c = m->clients; c; c = c->next)
+		if (c->tags & mask)
+			return;
+	spawn(&(Arg){ .v = specialcmds[idx - 12] });
 }
 
 /* move the focused window to the target tag and follow it */
@@ -484,7 +572,7 @@ static const Key keys[] = {
 	{ MODKEY,                       XK_p,                spawn,          {.v = pomotask} },
 	{ MODKEY,                       XK_z,                spawn,          {.v = pomotask} },
 	{ MODKEY,                       XK_bracketright,     spawn,          {.v = lightctl} },
-	{ MODKEY,                       XK_b,                togglebar,      {0} },
+	{ MODKEY|ShiftMask,             XK_b,                togglebar,      {0} },
 	{ MODKEY,                       XK_Tab,              setlayout,      {0} },
 	{ MODKEY,                       XK_space,            setlayout,      {0} },
 	{ MODKEY|ShiftMask,             XK_Return,           zoom,           {0} },
@@ -494,7 +582,7 @@ static const Key keys[] = {
 	{ MODKEY,                       XK_l,                focusdir,       {.i = DirRight} },
 	{ MODKEY,                       XK_k,                focusdir,       {.i = DirUp} },
 	{ MODKEY,                       XK_j,                focusdir,       {.i = DirDown} },
-	{ MODKEY,                       XK_i,                incnmaster,     {.i = +1} },
+	{ MODKEY|ShiftMask,             XK_i,                incnmaster,     {.i = +1} },
 	{ MODKEY,                       XK_a,                incnmaster,     {.i = -1} },
 	/* directional window move, swapping clients or crossing monitors */
 	{ MODKEY|Mod1Mask,              XK_h,                movedir,        {.i = DirLeft} },
@@ -517,6 +605,16 @@ static const Key keys[] = {
 	{ MODKEY|ControlMask,           XK_equal,            toggleview,     {.ui = 1 << 11} },
 	{ MODKEY|ShiftMask,             XK_equal,            tagto,          {.ui = 1 << 11} },
 	{ MODKEY|ControlMask|ShiftMask, XK_equal,            toggletag,      {.ui = 1 << 11} },
+	/* hyprland special workspaces */
+	{ 0,                            XK_F12,              togglespecial,  {.i = 12} },
+	{ MODKEY,                       XK_g,                togglespecial,  {.i = 13} },
+	{ MODKEY,                       XK_o,                togglespecial,  {.i = 14} },
+	{ MODKEY,                       XK_u,                togglespecial,  {.i = 15} },
+	{ MODKEY,                       XK_i,                togglespecial,  {.i = 16} },
+	{ MODKEY,                       XK_b,                togglespecial,  {.i = 17} },
+	{ MODKEY,                       XK_m,                togglespecial,  {.i = 18} },
+	{ MODKEY,                       XK_c,                togglespecial,  {.i = 19} },
+	{ MODKEY,                       XK_n,                togglespecial,  {.i = 20} },
 	/* hyprland ALT+SUPER: move workspace to monitor */
 	{ MODKEY|Mod1Mask,              XK_1,                movetag,        {.i = 0} },
 	{ MODKEY|Mod1Mask,              XK_0,                movetag,        {.i = 0} },
