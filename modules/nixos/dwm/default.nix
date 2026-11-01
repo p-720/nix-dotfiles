@@ -45,17 +45,20 @@ in {
         ${pkgs.picom}/bin/picom --daemon
         ${pkgs.dunst}/bin/dunst &
         ${pkgs.gammastep}/bin/gammastep -c /home/andrew/.config/gammastep.conf &
-        # HDMI-1 can enumerate without modes until its EDID is re-read; force it on
-        # before laying out the screen, otherwise feh/taffybar see one monitor
+        # output names differ between nvidia and modesetting; find them by mode
+        left=""
+        right=""
         for i in $(seq 1 20); do
-          ${pkgs.xorg.xrandr}/bin/xrandr --output HDMI-1 --auto 2>/dev/null || true
-          monitors=$(${pkgs.xorg.xrandr}/bin/xrandr --listmonitors | ${pkgs.gawk}/bin/awk 'NR == 1 { print $2 }')
-          [ "${monitors:-1}" -ge 2 ] && break
+          ${pkgs.xorg.xrandr}/bin/xrandr --auto 2>/dev/null || true
+          left=$(${pkgs.xorg.xrandr}/bin/xrandr --query | ${pkgs.gawk}/bin/awk '$2 == "connected" && $0 ~ /2560x1080/ { print $1; exit }')
+          right=$(${pkgs.xorg.xrandr}/bin/xrandr --query | ${pkgs.gawk}/bin/awk -v l="$left" '$2 == "connected" && $1 != l { print $1; exit }')
+          [ -n "$left" ] && [ -n "$right" ] && break
           sleep 0.25
         done
-        ${pkgs.xorg.xrandr}/bin/xrandr --output DP-1 --mode 2560x1080 --pos 0x0 --primary 2>/dev/null || true
-        ${pkgs.xorg.xrandr}/bin/xrandr --output HDMI-1 --mode 1920x1080 --pos 2560x0 2>/dev/null || true
-        ${pkgs.xorg.xrandr}/bin/xrandr --output HDMI-2 --mode 1800x1080 --pos 4480x0 2>/dev/null || true
+        [ -n "$left" ] || left=$(${pkgs.xorg.xrandr}/bin/xrandr --query | ${pkgs.gawk}/bin/awk '$2 == "connected" { print $1; exit }')
+        [ -n "$right" ] || right=$(${pkgs.xorg.xrandr}/bin/xrandr --query | ${pkgs.gawk}/bin/awk -v l="$left" '$2 == "connected" && $1 != l { print $1; exit }')
+        [ -n "$left" ] && ${pkgs.xorg.xrandr}/bin/xrandr --output "$left" --primary --mode 2560x1080 --pos 0x0 2>/dev/null || true
+        [ -n "$right" ] && ${pkgs.xorg.xrandr}/bin/xrandr --output "$right" --mode 1920x1080 --pos 2560x0 2>/dev/null || true
         sleep 1
         if [ "$(darkman get 2>/dev/null)" = dark ]; then
           ${pkgs.feh}/bin/feh --bg-fill --geometry +0+0 /etc/nixos/bg_old.png /etc/nixos/bg_old.png /etc/nixos/bg_old.png

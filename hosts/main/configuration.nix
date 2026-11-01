@@ -178,22 +178,29 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
     };
     gsp.enable = false;
     open = false;
+    # fbdev is a second console framebuffer; Xorg only needs DRM modeset
+    moduleParams = lib.mkForce {
+      "nvidia-drm" = {
+        modeset = 1;
+        fbdev = 0;
+      };
+    };
   };
 
   services.xserver = {
     enable = true;
-    # nvidia in the list enables the nvidia kernel module for CUDA/nvidia-smi;
-    # modesetting is first so Xorg still uses the software 2D path
-    videoDrivers = [ "modesetting" "nvidia" ];
+    # NVIDIA DDX is required for reliable secondary-CRTC scanout;
+    # LIBGL_ALWAYS_SOFTWARE keeps application rendering in software
+    videoDrivers = [ "nvidia" ];
     dpi = 96;
     # Doesnt work
     xkb = {
       layout = "us,ru";
       options = "grp:alt_shift_toggle,compose:ralt";
     };
-    # modesetting+glamor has no NVIDIA Mesa driver; keep the shadow path
     deviceSection = ''
-      Option "AccelMethod" "none"
+      Option "AllowSHMPixmaps" "true"
+      Option "TripleBuffer" "false"
       Option "BackingStore" "false"
     '';
     serverFlagsSection = ''
