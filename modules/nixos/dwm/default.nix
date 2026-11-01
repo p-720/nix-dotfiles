@@ -10,6 +10,7 @@ let
       ./patches/ewmhtags.diff
       ./patches/focusdesktop.diff
       ./patches/fakefullscreen.diff
+      ./patches/overlay.diff
       ./patches/anybar.diff
       ./patches/altbarfit.diff
       ./patches/noborder.diff

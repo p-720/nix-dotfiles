@@ -1,0 +1,22 @@
+--- a/dwm.c
++++ b/dwm.c
+@@ -1050,6 +1050,10 @@
+ 	} else {
+ 		c->mon = selmon;
+ 		applyrules(c);
++		if (specialpending >= 0) {
++			c->tags = 1u << specialpending;
++			specialpending = -1;
++		}
+ 	}
+ 
+ 	if (c->x + WIDTH(c) > c->mon->wx + c->mon->ww)
+@@ -1083,6 +1087,8 @@
+ 		unfocus(selmon->sel, 0);
+ 	c->mon->sel = c;
+ 	arrange(c->mon);
++	if (c->tags & ~((1u << SPECIAL_FIRST) - 1))
++		setfullscreen(c, 1);
+ 	XMapWindow(dpy, c->win);
+ 	focus(NULL);
+ }

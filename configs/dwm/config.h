@@ -32,6 +32,8 @@ static const char *tags[] = {
 	"7", "8", "9", "10", "11", "12",
 	"alacritty", "openai", "deepseek", "grok", "otherai", "gemini", "music", "speedcrunch", "emacs",
 };
+#define SPECIAL_FIRST 12
+static int specialpending = -1;
 /* tags 1-6 start on monitor 0, 7-12 on monitor 1; movetag updates this */
 static int tagowner[LENGTH(tags)] = {
 	0, 0, 0, 0, 0, 0,
@@ -300,34 +302,31 @@ viewtag(const Arg *arg)
 		warppointer(selmon->sel);
 }
 
-static unsigned int specialprev[LENGTH(tags)];
-
 static void
 togglespecial(const Arg *arg)
 {
-	unsigned int mask;
-	int idx = arg->i;
 	Monitor *m = selmon;
 	Client *c;
 	Arg a;
+	unsigned int mask;
+	int idx = arg->i;
 
-	if (!m || idx < 12 || idx >= LENGTH(tags))
+	if (!m || idx < SPECIAL_FIRST || idx >= LENGTH(tags))
 		return;
 	mask = 1u << idx;
+	a.ui = mask;
+	/* keep the current workspace visible; the special tag is an overlay */
 	if (m->tagset[m->seltags] & mask) {
-		a.ui = specialprev[idx] ? specialprev[idx] : 1u;
-		specialprev[idx] = 0;
-		viewtag(&a);
+		toggleview(&a);
 		return;
 	}
-	specialprev[idx] = m->tagset[m->seltags];
 	tagowner[idx] = m->num;
-	a.ui = mask;
-	viewtag(&a);
+	toggleview(&a);
 	for (c = m->clients; c; c = c->next)
 		if (c->tags & mask)
 			return;
-	spawn(&(Arg){ .v = specialcmds[idx - 12] });
+	specialpending = idx;
+	spawn(&(Arg){ .v = specialcmds[idx - SPECIAL_FIRST] });
 }
 
 /* move the focused window to the target tag and follow it */
