@@ -51,24 +51,6 @@
       fsType = "ext4";
     };
 
-  hardware.display.edid.enable = true;
-  hardware.display.outputs.HDMI-A-2.edid = "1800x1080.bin";
-  hardware.display.edid.packages = [
-    (pkgs.edid-generator.overrideAttrs {
-      clean = true;
-      modelines = ''
-      Modeline "1440x864_60"  102.25  1440 1520 1672 1904  864 867 874 897 -hsync +vsync ratio=16:10
-      Modeline "864_59.75"  101.75  1440 1520 1672 1904  864 867 874 897 -hsync +vsync ratio=16:10
-      Modeline "1800x1080"  161.75  1800 1912 2104 2408  1080 1083 1090 1120 -hsync +vsync ratio=16:10
-      Modeline "1800_30.00"   74.75  1800 1856 2032 2264  1080 1083 1090 1102 -hsync +vsync ratio=16:10
-      Modeline "2000_60"  200.50  2000 2136 2344 2688  1200 1203 1213 1245 -hsync +vsync ratio=16:10
-
-      Modeline "1800x1080R"  130.50  1800 1848 1880 1960  1080 1083 1090 1111 +hsync -vsync ratio=16:10
-
-    '';
-    })
-  ];
-
   # TODO fix permissions
   # https://superuser.com/questions/174776/modify-fstab-entry-so-all-users-can-read-and-write-to-an-ext4-volume
   fileSystems."/mnt/md127" =
