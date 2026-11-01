@@ -39,10 +39,11 @@ in {
     '';
 
     # SDDM's greeter starts before the session xrandr layout; keep its login on DP-1
-    services.xserver.displayManager.setupCommands = ''
-      ${pkgs.xorg.xrandr}/bin/xrandr --output DP-1 --primary --mode 2560x1080 --pos 0x0 2>/dev/null || true
-      ${pkgs.xorg.xrandr}/bin/xrandr --output HDMI-1 --off 2>/dev/null || true
-    '';
+    services.xserver.displayManager.setupCommands =
+      lib.optionalString (config.services.displayManager.defaultSession == "none+dwm") ''
+        ${pkgs.xorg.xrandr}/bin/xrandr --output DP-1 --primary --mode 2560x1080 --pos 0x0 2>/dev/null || true
+        ${pkgs.xorg.xrandr}/bin/xrandr --output HDMI-1 --off 2>/dev/null || true
+      '';
 
     services.xserver.windowManager.dwm = {
       enable = true;
