@@ -20,11 +20,22 @@ if [[ "${XDG_CURRENT_DESKTOP:-}" != "Hyprland" && -n "${DISPLAY:-}" ]]; then
     setsid firefox --new-window "$URL" >/dev/null 2>&1 &
 
     for _ in $(seq 1 100); do
-        after="$(xdotool search --class firefox 2>/dev/null | sort || true)"
-        new="$(comm -13 <(printf '%s\n' "$before") <(printf '%s\n' "$after") | head -1)"
+        after="$(xdotool search --onlyvisible --class firefox 2>/dev/null | sort || true)"
+        new=""
+        for id in $(comm -13 <(printf '%s\n' "$before") <(printf '%s\n' "$after")); do
+            WIDTH=0
+            HEIGHT=0
+            eval "$(xdotool getwindowgeometry --shell "$id" 2>/dev/null)" || continue
+            # Firefox exposes 1x1 helper windows alongside the real window
+            if [[ "${WIDTH:-0}" -gt 200 && "${HEIGHT:-0}" -gt 200 ]]; then
+                new="$id"
+                break
+            fi
+        done
         if [[ -n "$new" ]]; then
             sleep 0.3
             xdotool windowactivate --sync "$new" 2>/dev/null || xdotool windowfocus --sync "$new" 2>/dev/null || true
+            sleep 0.2
             xdotool key --clearmodifiers super+shift+f
             exit 0
         fi

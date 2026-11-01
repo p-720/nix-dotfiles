@@ -366,7 +366,7 @@ togglefakefullscreen(const Arg *arg)
 		c->fakeoldfloating = c->isfloating;
 		c->isfloating = 1;
 		c->bw = 0;
-		resize(c, c->mon->wx, c->mon->wy, c->mon->ww, c->mon->wh, 0);
+		resize(c, c->mon->mx, c->mon->my, c->mon->mw, c->mon->mh, 0);
 		focus(c);
 	} else {
 		c->fakefull = 0;
