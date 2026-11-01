@@ -12,9 +12,9 @@ else
         swaymsg "output * bg /etc/nixos/bg_old.png fill"
     else
         if [ "$WORK_MODE" = "1" ]; then
-            feh --bg-fill /etc/nixos/work-bg.jpg;
+            feh --bg-fill --geometry +0+0 /etc/nixos/work-bg.jpg /etc/nixos/work-bg.jpg /etc/nixos/work-bg.jpg;
         else
-            feh --bg-fill /etc/nixos/bg_old.png;
+            feh --bg-fill --geometry +0+0 /etc/nixos/bg_old.png /etc/nixos/bg_old.png /etc/nixos/bg_old.png;
         fi
         touch $HOME/.xsettingsd
         cat > $HOME/.xsettingsd <<-EOF

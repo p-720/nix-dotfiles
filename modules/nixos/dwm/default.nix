@@ -51,9 +51,9 @@ in {
         ${pkgs.xorg.xrandr}/bin/xrandr --output HDMI-2 --mode 1800x1080 --pos 4480x0 2>/dev/null || true
         sleep 1
         if [ "$(darkman get 2>/dev/null)" = dark ]; then
-          ${pkgs.feh}/bin/feh --bg-fill /etc/nixos/bg_old.png
+          ${pkgs.feh}/bin/feh --bg-fill --geometry +0+0 /etc/nixos/bg_old.png /etc/nixos/bg_old.png /etc/nixos/bg_old.png
         else
-          ${pkgs.feh}/bin/feh --bg-fill /etc/nixos/light.jpg
+          ${pkgs.feh}/bin/feh --bg-fill --geometry +0+0 /etc/nixos/light.jpg /etc/nixos/light.jpg /etc/nixos/light.jpg
         fi
         (rm -f ~/.cache/status-notifier-item/*.json; status-notifier-watcher) &
         (while xset q >/dev/null 2>&1; do taffybar; sleep 2; done) &
