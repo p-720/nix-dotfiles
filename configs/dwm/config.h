@@ -393,6 +393,8 @@ togglespecial(const Arg *arg)
 		}
 
 	arrange(m);
+	if (shown)
+		centerspecial(shown);
 	updatecurrentdesktop();
 	updateclientlist();
 	if (shown)
