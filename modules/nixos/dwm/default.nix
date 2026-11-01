@@ -27,6 +27,12 @@ in {
     # X11 only: Wayland/Hyprland keeps hardware GL
     services.xserver.displayManager.sessionCommands = ''
       export LIBGL_ALWAYS_SOFTWARE=1
+      export __GLX_VENDOR_LIBRARY_NAME=mesa
+      export MESA_LOADER_DRIVER_OVERRIDE=llvmpipe
+      export GALLIUM_DRIVER=llvmpipe
+      export __EGL_VENDOR_LIBRARY_FILENAMES=/run/opengl-driver/share/glvnd/egl_vendor.d/50_mesa.json
+      export VK_ICD_FILENAMES=/run/opengl-driver/share/vulkan/icd.d/lvp_icd.x86_64.json
+      export VK_DRIVER_FILES=/run/opengl-driver/share/vulkan/icd.d/lvp_icd.x86_64.json
     '';
 
     # SDDM's greeter starts before the session xrandr layout; keep its login on DP-1
@@ -42,7 +48,6 @@ in {
         ${pkgs.xorg.xsetroot}/bin/xsetroot -cursor_name left_ptr
         ${pkgs.xorg.xset}/bin/xset s off
         ${pkgs.xorg.xset}/bin/xset dpms 0 0 180
-        ${pkgs.picom}/bin/picom --daemon
         ${pkgs.dunst}/bin/dunst &
         ${pkgs.gammastep}/bin/gammastep -c /home/andrew/.config/gammastep.conf &
         # output names differ between nvidia and modesetting; find them by mode

@@ -202,6 +202,14 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
       Option "AllowSHMPixmaps" "true"
       Option "TripleBuffer" "false"
       Option "BackingStore" "false"
+      # X drawing into system-memory pixmaps; saves driver VRAM
+      Option "UseSysmemPixmapAccel" "false"
+      Option "NoFlip" "true"
+    '';
+    extraConfig = ''
+      Section "Extensions"
+        Option "Composite" "Disable"
+      EndSection
     '';
     serverFlagsSection = ''
       Option "BlankTime" "1"
