@@ -463,8 +463,8 @@ movedir(const Arg *arg)
 
 static const char *termcmd[]   = { "foot", NULL };
 static const char *filemgr[]   = { "nautilus", NULL };
-static const char *dmenucmd[]  = { "sh", "-c", "$HOME/.config/rofi/launchers/colorful/launcher.sh", NULL };
 static char dmenumon[2] = "0";
+static const char *dmenucmd[]  = { "sh", "-c", "$HOME/.config/rofi/launchers/colorful/launcher.sh \"$1\"", "sh", dmenumon, NULL };
 static const char *pomotask[]  = { "sh", "-c", "$HOME/.config/rofi/launchers/colorful/pomotask.sh", NULL };
 static const char *lightctl[]  = { "sh", "-c", "$HOME/.config/polybar/light_control.sh", NULL };
 static const char *lockcmd[]   = { "i3lock", "-c", "000000", NULL };

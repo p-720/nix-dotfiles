@@ -50,7 +50,12 @@ EOF
 if [ "${XDG_SESSION_TYPE:-}" = "wayland" ]; then
 	rofi  -no-lazy-grab -show drun -modi run,drun -theme $dir/"$theme"
 else
-	monitor="$("$HOME/.config/rofi/bin/focused-monitor" 2>/dev/null || true)"
+	if [ -n "${1:-}" ]; then
+		# dwm passes its focused monitor index; xrandr names are the ids rofi wants
+		monitor="$(xrandr --listmonitors 2>/dev/null | awk -v n="$1" 'NR == n + 2 { print $4 }')"
+	else
+		monitor="$("$HOME/.config/rofi/bin/focused-monitor" 2>/dev/null || true)"
+	fi
 	monitor_args=()
 	[ -n "$monitor" ] && monitor_args=(-m "$monitor")
 	rofi "${monitor_args[@]}" -no-lazy-grab -show drun -modi run,drun -theme $dir/"$theme"
