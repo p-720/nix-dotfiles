@@ -397,9 +397,10 @@ togglespecial(const Arg *arg)
 		centerspecial(shown, m);
 	updatecurrentdesktop();
 	updateclientlist();
-	if (shown)
+	if (shown) {
 		focus(shown);
-	else
+		centerspecial(shown, m);
+	} else
 		focus(NULL);
 
 	if (found)
