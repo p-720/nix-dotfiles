@@ -240,7 +240,7 @@ static const char **specialcmds[] = {
 	special_otherai, special_gemini, special_music, special_speedcrunch,
 	special_emacs
 };
-static const char *telegram_ffcmd[] = { "firefox", "--new-window", "https://ug.kyrgyzstan.kg/pomotask/", NULL };
+static const char *telegram_ffcmd[] = { "firefox-pwa", "https://ug.kyrgyzstan.kg/pomotask/", NULL };
 static const char *telegram_tgcmd[] = {
 	"sh", "-c", "env GDK_BACKEND=x11 QT_QPA_PLATFORM=xcb WEBKIT_DISABLE_DMABUF_RENDERER=1 Telegram", NULL
 };
@@ -358,20 +358,37 @@ static void
 togglefakefullscreen(const Arg *arg)
 {
 	Client *c = selmon->sel;
-	Atom fullscreen, state;
+	Atom actualType, fullscreen, state, *cur, *next;
+	int actualFormat, has = 0, i, n = 0, m = 0;
+	unsigned long nitems, bytesAfter;
+	unsigned char *data = NULL;
 
 	if (!c)
 		return;
 	fullscreen = XInternAtom(dpy, "_NET_WM_STATE_FULLSCREEN", False);
 	state = XInternAtom(dpy, "_NET_WM_STATE", False);
-	if (!c->fakefull) {
-		c->fakefull = 1;
-		XChangeProperty(dpy, c->win, state, XA_ATOM, 32, PropModeReplace,
-			(unsigned char *)&fullscreen, 1);
-	} else {
-		c->fakefull = 0;
-		XDeleteProperty(dpy, c->win, state);
+	if (XGetWindowProperty(dpy, c->win, state, 0, 1024, False, XA_ATOM,
+			&actualType, &actualFormat, &nitems, &bytesAfter, &data) == Success && data) {
+		cur = (Atom *)data;
+		n = nitems;
+		for (i = 0; i < n; i++)
+			if (cur[i] == fullscreen)
+				has = 1;
 	}
+	next = ecalloc(n + 1, sizeof(Atom));
+	for (i = 0; i < n; i++)
+		if (cur[i] != fullscreen)
+			next[m++] = cur[i];
+	if (!has)
+		next[m++] = fullscreen;
+	if (m)
+		XChangeProperty(dpy, c->win, state, XA_ATOM, 32, PropModeReplace,
+			(unsigned char *)next, m);
+	else
+		XDeleteProperty(dpy, c->win, state);
+	free(next);
+	if (data)
+		XFree(data);
 	XFlush(dpy);
 }
 
