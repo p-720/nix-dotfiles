@@ -156,7 +156,7 @@ index ab3a84c..b56e18b 100644
  }
  
  void
-@@ -1855,13 +1898,33 @@ updateclientlist(void)
+@@ -1855,13 +1898,35 @@ updateclientlist(void)
  {
  	Client *c;
  	Monitor *m;
@@ -183,9 +183,11 @@ index ab3a84c..b56e18b 100644
 +void updatecurrentdesktop(void){
 +	long rawdata[] = { selmon->tagset[selmon->seltags] };
 +	int i=0;
-+	while(*rawdata >> (i+1)){
++	while(i < LENGTH(tags) && !(*rawdata & (1u << i))){
 +		i++;
 +	}
++	if(i >= LENGTH(tags))
++		i = 0;
 +	long data[] = { i };
 +	XChangeProperty(dpy, root, netatom[NetCurrentDesktop], XA_CARDINAL, 32, PropModeReplace, (unsigned char *)data, 1);
  }

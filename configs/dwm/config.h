@@ -33,6 +33,7 @@ static const char *tags[] = {
 	"alacritty", "openai", "deepseek", "grok", "otherai", "gemini", "music", "speedcrunch", "emacs",
 };
 #define SPECIAL_FIRST 12
+#define SPECIAL_GAP 50
 static int specialpending = -1;
 /* tags 1-6 start on monitor 0, 7-12 on monitor 1; movetag updates this */
 static int tagowner[LENGTH(tags)] = {

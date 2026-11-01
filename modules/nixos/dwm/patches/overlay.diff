@@ -11,12 +11,17 @@
  	}
  
  	if (c->x + WIDTH(c) > c->mon->wx + c->mon->ww)
-@@ -1083,6 +1087,8 @@
+@@ -1083,6 +1087,13 @@
  		unfocus(selmon->sel, 0);
  	c->mon->sel = c;
  	arrange(c->mon);
-+	if (c->tags & ~((1u << SPECIAL_FIRST) - 1))
-+		setfullscreen(c, 1);
++	if (c->tags & ~((1u << SPECIAL_FIRST) - 1)) {
++		int ow = c->mon->mw - 2 * SPECIAL_GAP;
++		int oh = c->mon->mh - 2 * SPECIAL_GAP;
++		c->isfloating = 1;
++		c->bw = 0;
++		resize(c, c->mon->mx + SPECIAL_GAP, c->mon->my + SPECIAL_GAP, ow, oh, 0);
++	}
  	XMapWindow(dpy, c->win);
  	focus(NULL);
  }
