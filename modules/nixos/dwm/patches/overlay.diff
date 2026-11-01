@@ -1,16 +1,18 @@
 --- a/dwm.c
 +++ b/dwm.c
-@@ -1050,6 +1050,10 @@
- 	} else {
- 		c->mon = selmon;
- 		applyrules(c);
-+		if (specialpending >= 0) {
-+			c->tags = 1u << specialpending;
-+			specialpending = -1;
-+		}
- 	}
+@@ -1044,7 +1044,11 @@
+ 	c->oldbw = wa->border_width;
  
- 	if (c->x + WIDTH(c) > c->mon->wx + c->mon->ww)
+ 	updatetitle(c);
+-	if (XGetTransientForHint(dpy, w, &trans) && (t = wintoclient(trans))) {
++	if (specialpending >= 0 && wa->width > 100 && wa->height > 100) {
++		c->mon = selmon;
++		c->tags = 1u << specialpending;
++		specialpending = -1;
++	} else if (XGetTransientForHint(dpy, w, &trans) && (t = wintoclient(trans))) {
+ 		c->mon = t->mon;
+ 		c->tags = t->tags;
+ 	} else {
 @@ -1083,6 +1087,13 @@
  		unfocus(selmon->sel, 0);
  	c->mon->sel = c;
