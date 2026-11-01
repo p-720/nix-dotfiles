@@ -35,9 +35,8 @@ if [[ "${XDG_CURRENT_DESKTOP:-}" != "Hyprland" && -n "${DISPLAY:-}" ]]; then
             fi
         done
         if [[ -n "$new" ]]; then
-            sleep 0.3
-            xdotool windowactivate --sync "$new" 2>/dev/null || xdotool windowfocus --sync "$new" 2>/dev/null || true
-            # Firefox may still be initializing and drop an early state change
+            # Do not touch _NET_ACTIVE_WINDOW here: dwm's manage() already
+            # focuses the new overlay, and windowactivate can switch desktops.
             sleep 2
             for _ in $(seq 1 20); do
                 xprop -id "$new" -f _NET_WM_STATE 32a -set _NET_WM_STATE _NET_WM_STATE_FULLSCREEN 2>/dev/null || true
