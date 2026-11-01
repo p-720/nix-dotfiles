@@ -315,14 +315,17 @@ togglespecial(const Arg *arg)
 	if (!m || idx < SPECIAL_FIRST || idx >= LENGTH(tags))
 		return;
 	mask = 1u << idx;
-	a.ui = mask;
 	/* keep the current workspace visible; the special tag is an overlay */
 	if (m->tagset[m->seltags] & mask) {
-		toggleview(&a);
+		a.ui = m->tagset[m->seltags] & ~mask;
+		if (!a.ui)
+			a.ui = 1u;
+		view(&a);
 		return;
 	}
 	tagowner[idx] = m->num;
-	toggleview(&a);
+	a.ui = m->tagset[m->seltags] | mask;
+	view(&a);
 	for (c = m->clients; c; c = c->next)
 		if (c->tags & mask) {
 			focus(c);
