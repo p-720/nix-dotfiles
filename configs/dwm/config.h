@@ -364,6 +364,7 @@ focusdir(const Arg *arg)
 	}
 	if (best) {
 		focus(best);
+		warppointer(best);
 		return;
 	}
 	if ((m = adjmon(dir))) {
