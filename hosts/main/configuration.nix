@@ -2,7 +2,7 @@
 # your system.  Help is available in the configuration.nix(5) man page
 # and in the NixOS manual (accessible by running ‘nixos-help’).
 
-{ config, pkgs, ghcWithPackages, self, ... }:
+{ config, lib, pkgs, ghcWithPackages, self, ... }:
 
 {
   imports = [ ./hardware-configuration.nix ];
@@ -250,7 +250,9 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
   # Define a user account. Don't forget to set a password with ‘passwd’.
   # TODO Move to home manager user config?
   modules.sway.enable = false;
-  modules.xmonad.enable = true;
+  modules.xmonad.enable = false;
+  # xmonad forced this before; make the SDDM default match the configured WM
+  services.displayManager.defaultSession = lib.mkForce "none+dwm";
   modules.ilzabot.enable = false;
   modules.hjkl.enable = false;
   modules.printing3d.enable = true;

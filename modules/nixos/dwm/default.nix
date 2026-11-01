@@ -45,7 +45,14 @@ in {
         ${pkgs.picom}/bin/picom --daemon
         ${pkgs.dunst}/bin/dunst &
         ${pkgs.gammastep}/bin/gammastep -c /home/andrew/.config/gammastep.conf &
-        # lay out outputs before feh/taffybar read the screen size
+        # HDMI-1 can enumerate without modes until its EDID is re-read; force it on
+        # before laying out the screen, otherwise feh/taffybar see one monitor
+        for i in $(seq 1 20); do
+          ${pkgs.xorg.xrandr}/bin/xrandr --output HDMI-1 --auto 2>/dev/null || true
+          monitors=$(${pkgs.xorg.xrandr}/bin/xrandr --listmonitors | ${pkgs.gawk}/bin/awk 'NR == 1 { print $2 }')
+          [ "${monitors:-1}" -ge 2 ] && break
+          sleep 0.25
+        done
         ${pkgs.xorg.xrandr}/bin/xrandr --output DP-1 --mode 2560x1080 --pos 0x0 --primary 2>/dev/null || true
         ${pkgs.xorg.xrandr}/bin/xrandr --output HDMI-1 --mode 1920x1080 --pos 2560x0 2>/dev/null || true
         ${pkgs.xorg.xrandr}/bin/xrandr --output HDMI-2 --mode 1800x1080 --pos 4480x0 2>/dev/null || true
