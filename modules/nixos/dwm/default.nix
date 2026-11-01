@@ -9,6 +9,7 @@ let
     patches = [
       ./patches/ewmhtags.diff
       ./patches/focusdesktop.diff
+      ./patches/fakefullscreen.diff
       ./patches/anybar.diff
       ./patches/altbarfit.diff
       ./patches/noborder.diff

@@ -14,6 +14,26 @@ if [[ -z "$URL" ]]; then
     exit 1
 fi
 
+# X11/dwm: fake-fullscreen the new Firefox window instead of using Hyprland state
+if [[ "${XDG_CURRENT_DESKTOP:-}" != "Hyprland" && -n "${DISPLAY:-}" ]]; then
+    before="$(xdotool search --class firefox 2>/dev/null | sort || true)"
+    setsid firefox --new-window "$URL" >/dev/null 2>&1 &
+
+    for _ in $(seq 1 100); do
+        after="$(xdotool search --class firefox 2>/dev/null | sort || true)"
+        new="$(comm -13 <(printf '%s\n' "$before") <(printf '%s\n' "$after") | head -1)"
+        if [[ -n "$new" ]]; then
+            sleep 0.3
+            xdotool windowactivate --sync "$new" 2>/dev/null || xdotool windowfocus --sync "$new" 2>/dev/null || true
+            xdotool key --clearmodifiers super+shift+f
+            exit 0
+        fi
+        sleep 0.1
+    done
+    echo "Timeout waiting for Firefox window"
+    exit 1
+fi
+
 # Default: PWA fullscreen
 if [[ $# -eq 0 ]]; then
     RULES="fullscreenstate 0 2"

@@ -227,12 +227,12 @@ warppointer(Client *c)
 
 /* hyprland special apps; tags 13-21 are hidden scratch tags */
 static const char *special_alacritty[] = { "alacritty", NULL };
-static const char *special_openai[] = { "firefox", "--new-window", "https://chatgpt.com/", NULL };
-static const char *special_deepseek[] = { "firefox", "--new-window", "https://chat.deepseek.com/", NULL };
-static const char *special_grok[] = { "firefox", "--new-window", "https://grok.com/", NULL };
-static const char *special_otherai[] = { "firefox", "--new-window", "https://claude.ai/", NULL };
+static const char *special_openai[] = { "firefox-pwa", "https://chatgpt.com/", NULL };
+static const char *special_deepseek[] = { "firefox-pwa", "https://chat.deepseek.com/", NULL };
+static const char *special_grok[] = { "firefox-pwa", "https://grok.com/", NULL };
+static const char *special_otherai[] = { "firefox-pwa", "https://claude.ai/", NULL };
 static const char *special_gemini[] = { "firefox", "--new-window", "https://gemini.google.com", NULL };
-static const char *special_music[] = { "firefox", "--new-window", "https://open.spotify.com/", NULL };
+static const char *special_music[] = { "firefox-pwa", "https://open.spotify.com/", NULL };
 static const char *special_speedcrunch[] = { "speedcrunch", NULL };
 static const char *special_emacs[] = { "emacs", NULL };
 static const char **specialcmds[] = {
@@ -352,6 +352,28 @@ togglefullscreenf(const Arg *arg)
 {
 	if (selmon->sel)
 		setfullscreen(selmon->sel, !selmon->sel->isfullscreen);
+}
+
+static void
+togglefakefullscreen(const Arg *arg)
+{
+	Client *c = selmon->sel;
+
+	if (!c)
+		return;
+	if (!c->fakefull) {
+		c->fakefull = 1;
+		c->fakeoldfloating = c->isfloating;
+		c->isfloating = 1;
+		c->bw = 0;
+		resize(c, c->mon->wx, c->mon->wy, c->mon->ww, c->mon->wh, 0);
+		focus(c);
+	} else {
+		c->fakefull = 0;
+		c->isfloating = c->fakeoldfloating;
+		c->bw = borderpx;
+		arrange(c->mon);
+	}
 }
 
 static const char *maxcmd[] = {
@@ -567,6 +589,7 @@ static const Key keys[] = {
 	{ MODKEY,                       XK_e,                spawn,          {.v = filemgr} },
 	{ MODKEY,                       XK_t,                togglefloating, {0} },
 	{ MODKEY,                       XK_f,                togglefullscreenf, {0} },
+	{ MODKEY|ShiftMask,             XK_f,                togglefakefullscreen, {0} },
 	{ MODKEY|ShiftMask,             XK_l,                spawn,          {.v = lockcmd} },
 	{ MODKEY,                       XK_d,                spawn,          {.v = dmenucmd} },
 	{ MODKEY,                       XK_p,                spawn,          {.v = pomotask} },
