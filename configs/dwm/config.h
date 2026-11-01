@@ -243,7 +243,7 @@ static const char **specialcmds[] = {
 	special_otherai, special_gemini, special_music, special_speedcrunch,
 	special_emacs
 };
-static const char *telegram_ffcmd[] = { "firefox-pwa", "https://ug.kyrgyzstan.kg/pomotask/", NULL };
+static const char *telegram_ffcmd[] = { "env", "DWM_NO_SPECIAL_TAG=1", "firefox-pwa", "https://ug.kyrgyzstan.kg/pomotask/", NULL };
 static const char *telegram_tgcmd[] = {
 	"sh", "-c", "env GDK_BACKEND=x11 QT_QPA_PLATFORM=xcb WEBKIT_DISABLE_DMABUF_RENDERER=1 Telegram", NULL
 };
