@@ -241,7 +241,7 @@ viewtag(const Arg *arg)
 		warppointer(selmon->sel);
 }
 
-/* move the focused window to the tag's monitor without following it */
+/* move the focused window to the target tag and follow it */
 static void
 tagto(const Arg *arg)
 {
@@ -250,15 +250,11 @@ tagto(const Arg *arg)
 
 	if (!c)
 		return;
-	if (m == selmon) {
-		tag(arg);
-		return;
-	}
-	sendmon(c, m);
+	if (m != selmon)
+		sendmon(c, m);
 	c->tags = arg->ui;
-	arrange(m);
-	arrange(selmon);
-	focus(NULL);
+	updateclientlist();
+	viewtag(arg);
 }
 
 /* workspace 12: start firefox with max.ru when it is empty */
