@@ -222,7 +222,7 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
     # '';
     exportConfiguration = true;
     # replaced by xmonad (modules.xmonad below)
-    windowManager.i3.enable = true;
+    windowManager.i3.enable = false;
     # windowManager.i3.package = (import (builtins.fetchTarball {
     #     url = "https://github.com/NixOS/nixpkgs/archive/79b3d4bcae8c7007c9fd51c279a8a67acfa73a2a.tar.gz";
     # }) {}).i3;
@@ -267,7 +267,7 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
   modules.sway.enable = false;
   modules.xmonad.enable = false;
   # xmonad forced this before; make the SDDM default match the configured WM
-  services.displayManager.defaultSession = lib.mkForce "none+i3";
+  services.displayManager.defaultSession = lib.mkForce "none+dwm";
   modules.ilzabot.enable = false;
   modules.hjkl.enable = false;
   modules.printing3d.enable = true;
