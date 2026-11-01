@@ -25,7 +25,7 @@
  		c->mon = t->mon;
  		c->tags = t->tags;
  	} else {
-@@ -1083,7 +1092,16 @@
+@@ -1083,6 +1092,19 @@
  		unfocus(selmon->sel, 0);
  	c->mon->sel = c;
  	arrange(c->mon);
@@ -34,11 +34,14 @@
 +		int oh = c->mon->mh - 2 * SPECIAL_GAP;
 +		c->isfloating = 1;
 +		c->bw = 0;
-+		resize(c, c->mon->mx + SPECIAL_GAP, c->mon->my + SPECIAL_GAP, ow, oh, 0);
++		c->x = c->mon->mx + SPECIAL_GAP;
++		c->y = c->mon->my + SPECIAL_GAP;
++		c->w = 0;
++		c->h = 0;
++		resize(c, c->x, c->y, ow, oh, 0);
 +	}
  	XMapWindow(dpy, c->win);
 +	if (c->tags & ~((1u << SPECIAL_FIRST) - 1))
 +		XRaiseWindow(dpy, c->win);
  	focus(NULL);
  }
- 

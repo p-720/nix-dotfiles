@@ -318,7 +318,11 @@ centerspecial(Client *c, Monitor *m)
 	oh = m->mh - 2 * SPECIAL_GAP;
 	c->isfloating = 1;
 	c->bw = 0;
-	resize(c, m->mx + SPECIAL_GAP, m->my + SPECIAL_GAP, ow, oh, 0);
+	c->x = m->mx + SPECIAL_GAP;
+	c->y = m->my + SPECIAL_GAP;
+	c->w = 0;
+	c->h = 0;
+	resize(c, c->x, c->y, ow, oh, 0);
 	XRaiseWindow(dpy, c->win);
 }
 
