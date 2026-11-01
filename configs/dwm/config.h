@@ -358,22 +358,21 @@ static void
 togglefakefullscreen(const Arg *arg)
 {
 	Client *c = selmon->sel;
+	Atom fullscreen, state;
 
 	if (!c)
 		return;
+	fullscreen = XInternAtom(dpy, "_NET_WM_STATE_FULLSCREEN", False);
+	state = XInternAtom(dpy, "_NET_WM_STATE", False);
 	if (!c->fakefull) {
 		c->fakefull = 1;
-		c->fakeoldfloating = c->isfloating;
-		c->isfloating = 1;
-		c->bw = 0;
-		resize(c, c->mon->mx, c->mon->my, c->mon->mw, c->mon->mh, 0);
-		focus(c);
+		XChangeProperty(dpy, c->win, state, XA_ATOM, 32, PropModeReplace,
+			(unsigned char *)&fullscreen, 1);
 	} else {
 		c->fakefull = 0;
-		c->isfloating = c->fakeoldfloating;
-		c->bw = borderpx;
-		arrange(c->mon);
+		XDeleteProperty(dpy, c->win, state);
 	}
+	XFlush(dpy);
 }
 
 static const char *maxcmd[] = {
