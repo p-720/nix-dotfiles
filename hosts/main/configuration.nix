@@ -191,9 +191,11 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
       layout = "us,ru";
       options = "grp:alt_shift_toggle,compose:ralt";
     };
-    # software 2D: no glamor, no NVIDIA X driver
+    # glamor drives the KMS framebuffer on every CRTC; the software shadowfb
+    # path left secondary outputs black with only the hardware cursor visible
     deviceSection = ''
-      Option "AccelMethod" "none"
+      Option "AccelMethod" "glamor"
+      Option "PageFlip" "false"
       Option "BackingStore" "false"
     '';
     serverFlagsSection = ''
