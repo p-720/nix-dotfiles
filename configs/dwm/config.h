@@ -369,6 +369,8 @@ focusdir(const Arg *arg)
 		unfocus(selmon->sel, 0);
 		selmon = m;
 		focus(NULL);
+		if (selmon->sel)
+			warppointer(selmon->sel);
 	}
 }
 
