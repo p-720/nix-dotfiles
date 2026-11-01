@@ -204,6 +204,7 @@ movetag(const Arg *arg)
 
 	selmon = m;
 	focus(NULL);
+	updatecurrentdesktop();
 	arrange(NULL);
 }
 
@@ -369,6 +370,7 @@ focusdir(const Arg *arg)
 		unfocus(selmon->sel, 0);
 		selmon = m;
 		focus(NULL);
+		updatecurrentdesktop();
 		if (selmon->sel)
 			warppointer(selmon->sel);
 	}

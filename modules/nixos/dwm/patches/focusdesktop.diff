@@ -1,0 +1,10 @@
+--- a/dwm.c
++++ b/dwm.c
+@@ -795,6 +795,7 @@ focus(Client *c)
+ 	if (c) {
+ 		if (c->mon != selmon)
+ 			selmon = c->mon;
++		updatecurrentdesktop();
+ 		if (c->isurgent)
+ 			seturgent(c, 0);
+ 		detachstack(c);

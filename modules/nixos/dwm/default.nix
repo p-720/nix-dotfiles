@@ -8,6 +8,7 @@ let
     conf = /etc/nixos/configs/dwm/config.h;
     patches = [
       ./patches/ewmhtags.diff
+      ./patches/focusdesktop.diff
       ./patches/anybar.diff
       ./patches/altbarfit.diff
       ./patches/noborder.diff
