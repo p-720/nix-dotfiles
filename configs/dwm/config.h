@@ -324,8 +324,10 @@ togglespecial(const Arg *arg)
 	tagowner[idx] = m->num;
 	toggleview(&a);
 	for (c = m->clients; c; c = c->next)
-		if (c->tags & mask)
+		if (c->tags & mask) {
+			focus(c);
 			return;
+		}
 	specialpending = idx;
 	spawn(&(Arg){ .v = specialcmds[idx - SPECIAL_FIRST] });
 }
