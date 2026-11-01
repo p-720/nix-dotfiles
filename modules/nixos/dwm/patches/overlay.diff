@@ -1,6 +1,18 @@
 --- a/dwm.c
 +++ b/dwm.c
-@@ -1044,7 +1044,11 @@
+@@ -586,6 +586,11 @@
+ 	XWindowChanges wc;
+ 
+ 	if ((c = wintoclient(ev->window))) {
++		if (c->tags & ~((1u << SPECIAL_FIRST) - 1)) {
++			configure(c);
++			XSync(dpy, False);
++			return;
++		}
+ 		if (ev->value_mask & CWBorderWidth)
+ 			c->bw = ev->border_width;
+ 		else if (c->isfloating || !selmon->lt[selmon->sellt]->arrange) {
+@@ -1044,7 +1049,11 @@
  	c->oldbw = wa->border_width;
  
  	updatetitle(c);
@@ -13,7 +25,7 @@
  		c->mon = t->mon;
  		c->tags = t->tags;
  	} else {
-@@ -1083,7 +1087,16 @@
+@@ -1083,7 +1092,16 @@
  		unfocus(selmon->sel, 0);
  	c->mon->sel = c;
  	arrange(c->mon);
@@ -30,36 +42,3 @@
  	focus(NULL);
  }
  
-@@ -1229,6 +1242,32 @@
- 	else if (ev->state == PropertyDelete)
- 		return; /* ignore */
- 	else if ((c = wintoclient(ev->window))) {
-+		if (ev->atom == XInternAtom(dpy, "_DWM_SPECIAL_TAG", False)) {
-+			Atom actualType;
-+			int actualFormat;
-+			unsigned long nitems, bytesAfter, tag;
-+			unsigned char *data = NULL;
-+
-+			if (XGetWindowProperty(dpy, c->win, ev->atom, 0, 1, False, XA_CARDINAL,
-+					&actualType, &actualFormat, &nitems, &bytesAfter, &data) == Success
-+					&& data && nitems) {
-+				tag = *(unsigned long *)data;
-+				if (tag < LENGTH(tags)) {
-+					int ow = c->mon->mw - 2 * SPECIAL_GAP;
-+					int oh = c->mon->mh - 2 * SPECIAL_GAP;
-+					c->tags = 1u << tag;
-+					c->isfloating = 1;
-+					c->bw = 0;
-+					resize(c, c->mon->mx + SPECIAL_GAP, c->mon->my + SPECIAL_GAP, ow, oh, 0);
-+					arrange(c->mon);
-+					focus(c);
-+					XRaiseWindow(dpy, c->win);
-+					updateclientlist();
-+				}
-+			}
-+			if (data)
-+				XFree(data);
-+		}
- 		switch(ev->atom) {
- 		default: break;
- 		case XA_WM_TRANSIENT_FOR:
