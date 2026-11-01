@@ -30,3 +30,36 @@
  	focus(NULL);
  }
  
+@@ -1229,6 +1242,32 @@
+ 	else if (ev->state == PropertyDelete)
+ 		return; /* ignore */
+ 	else if ((c = wintoclient(ev->window))) {
++		if (ev->atom == XInternAtom(dpy, "_DWM_SPECIAL_TAG", False)) {
++			Atom actualType;
++			int actualFormat;
++			unsigned long nitems, bytesAfter, tag;
++			unsigned char *data = NULL;
++
++			if (XGetWindowProperty(dpy, c->win, ev->atom, 0, 1, False, XA_CARDINAL,
++					&actualType, &actualFormat, &nitems, &bytesAfter, &data) == Success
++					&& data && nitems) {
++				tag = *(unsigned long *)data;
++				if (tag < LENGTH(tags)) {
++					int ow = c->mon->mw - 2 * SPECIAL_GAP;
++					int oh = c->mon->mh - 2 * SPECIAL_GAP;
++					c->tags = 1u << tag;
++					c->isfloating = 1;
++					c->bw = 0;
++					resize(c, c->mon->mx + SPECIAL_GAP, c->mon->my + SPECIAL_GAP, ow, oh, 0);
++					arrange(c->mon);
++					focus(c);
++					XRaiseWindow(dpy, c->win);
++					updateclientlist();
++				}
++			}
++			if (data)
++				XFree(data);
++		}
+ 		switch(ev->atom) {
+ 		default: break;
+ 		case XA_WM_TRANSIENT_FOR:

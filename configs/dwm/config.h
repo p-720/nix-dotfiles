@@ -315,6 +315,7 @@ togglespecial(const Arg *arg)
 	if (!m || idx < SPECIAL_FIRST || idx >= LENGTH(tags))
 		return;
 	mask = 1u << idx;
+	XDeleteProperty(dpy, root, XInternAtom(dpy, "_DWM_SPECIAL_TARGET", False));
 	/* keep the current workspace visible; the special tag is an overlay */
 	if (m->tagset[m->seltags] & mask) {
 		a.ui = m->tagset[m->seltags] & ~mask;
@@ -331,7 +332,15 @@ togglespecial(const Arg *arg)
 			focus(c);
 			return;
 		}
-	specialpending = idx;
+	specialpending = -1;
+	XDeleteProperty(dpy, root, XInternAtom(dpy, "_DWM_SPECIAL_TARGET", False));
+	if (strcmp(specialcmds[idx - SPECIAL_FIRST][0], "firefox-pwa") == 0) {
+		long target = idx;
+		XChangeProperty(dpy, root, XInternAtom(dpy, "_DWM_SPECIAL_TARGET", False),
+			XA_CARDINAL, 32, PropModeReplace, (unsigned char *)&target, 1);
+	} else {
+		specialpending = idx;
+	}
 	spawn(&(Arg){ .v = specialcmds[idx - SPECIAL_FIRST] });
 }
 

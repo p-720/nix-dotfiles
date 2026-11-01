@@ -38,6 +38,11 @@ if [[ "${XDG_CURRENT_DESKTOP:-}" != "Hyprland" && -n "${DISPLAY:-}" ]]; then
             # Do not touch _NET_ACTIVE_WINDOW here: dwm's manage() already
             # focuses the new overlay, and windowactivate can switch desktops.
             sleep 2
+            target="$(xprop -root _DWM_SPECIAL_TARGET 2>/dev/null | awk '{print $3}')"
+            if [[ -n "$target" ]]; then
+                xprop -id "$new" -f _DWM_SPECIAL_TAG 32c -set _DWM_SPECIAL_TAG "$target" 2>/dev/null || true
+                xprop -root -remove _DWM_SPECIAL_TARGET 2>/dev/null || true
+            fi
             for _ in $(seq 1 20); do
                 xprop -id "$new" -f _NET_WM_STATE 32a -set _NET_WM_STATE _NET_WM_STATE_FULLSCREEN 2>/dev/null || true
                 if xprop -id "$new" _NET_WM_STATE 2>/dev/null | grep -q _NET_WM_STATE_FULLSCREEN; then
