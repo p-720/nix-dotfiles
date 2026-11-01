@@ -48,6 +48,8 @@ in {
         ${pkgs.xorg.xsetroot}/bin/xsetroot -cursor_name left_ptr
         ${pkgs.xorg.xset}/bin/xset s off
         ${pkgs.xorg.xset}/bin/xset dpms 0 0 180
+        # same explicit layout switch i3 used; fcitx5 can otherwise leave it stale
+        ${pkgs.xorg.setxkbmap}/bin/setxkbmap us,ru -option 'grp:alt_shift_toggle'
         ${pkgs.dunst}/bin/dunst &
         ${pkgs.gammastep}/bin/gammastep -c /home/andrew/.config/gammastep.conf &
         # output names differ between nvidia and modesetting; find them by mode
