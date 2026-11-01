@@ -11,18 +11,41 @@ diff --git a/dwm.c b/dwm.c
 index 4465af1..2dd959d 100644
 --- a/dwm.c
 +++ b/dwm.c
-@@ -1282,6 +1282,19 @@ resizeclient(Client *c, int x, int y, int w, int h)
+@@ -1282,6 +1282,42 @@ resizeclient(Client *c, int x, int y, int w, int h)
  	c->oldw = c->w; c->w = wc.width = w;
  	c->oldh = c->h; c->h = wc.height = h;
  	wc.border_width = c->bw;
 +	{
 +		Client *t;
++		XWindowAttributes twa;
 +		int n = 0;
 +
-+		for (t = c->mon->clients; t; t = t->next)
-+			if (ISVISIBLE(t))
-+				n++;
-+		if (n == 1 && !c->isfullscreen) {
++		/* count windows visible BESIDE this one: hidden overlays are
++			 moved off-screen, not unmapped, so tag visibility alone keeps
++			 the border up after the overlay is closed; tiny 1x1 helper
++			 windows (Chromium maps them) and windows fully covered by this
++			 one, or covering it, are not visible beside it. */
++		for (t = c->mon->clients; t; t = t->next) {
++			if (t == c || !ISVISIBLE(t))
++				continue;
++			if (!XGetWindowAttributes(dpy, t->win, &twa))
++				continue;
++			if (twa.width <= 64 || twa.height <= 64)
++				continue;
++			if (twa.x + twa.width <= c->mon->mx || twa.x >= c->mon->mx + c->mon->mw ||
++			    twa.y + twa.height <= c->mon->my || twa.y >= c->mon->my + c->mon->mh)
++				continue;
++			if (twa.x >= c->x && twa.y >= c->y &&
++			    twa.x + twa.width <= c->x + c->w &&
++			    twa.y + twa.height <= c->y + c->h)
++				continue;
++			if (c->x >= twa.x && c->y >= twa.y &&
++			    c->x + c->w <= twa.x + twa.width &&
++			    c->y + c->h <= twa.y + twa.height)
++				continue;
++			n++;
++		}
++		if (n == 0 && !c->isfullscreen) {
 +			c->w = wc.width += c->bw * 2;
 +			c->h = wc.height += c->bw * 2;
 +			wc.border_width = 0;
