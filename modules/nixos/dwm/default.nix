@@ -24,6 +24,11 @@ in {
   config = mkIf cfg.enable {
     modules.taffybar.enable = mkDefault true;
 
+    # X11 only: Wayland/Hyprland keeps hardware GL
+    services.xserver.displayManager.sessionCommands = ''
+      export LIBGL_ALWAYS_SOFTWARE=1
+    '';
+
     # SDDM's greeter starts before the session xrandr layout; keep its login on DP-1
     services.xserver.displayManager.setupCommands = ''
       ${pkgs.xorg.xrandr}/bin/xrandr --output DP-1 --primary --mode 2560x1080 --pos 0x0 2>/dev/null || true

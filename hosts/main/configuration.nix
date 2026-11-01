@@ -191,11 +191,9 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
       layout = "us,ru";
       options = "grp:alt_shift_toggle,compose:ralt";
     };
-    # glamor drives the KMS framebuffer on every CRTC; the software shadowfb
-    # path left secondary outputs black with only the hardware cursor visible
+    # modesetting+glamor has no NVIDIA Mesa driver; keep the shadow path
     deviceSection = ''
-      Option "AccelMethod" "glamor"
-      Option "PageFlip" "false"
+      Option "AccelMethod" "none"
       Option "BackingStore" "false"
     '';
     serverFlagsSection = ''
