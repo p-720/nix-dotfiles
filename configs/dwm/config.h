@@ -277,8 +277,10 @@ viewtag(const Arg *arg)
 {
 	Monitor *m = tagmonitor(arg->ui), *prev = selmon;
 
-	if (!(arg->ui & ~((1u << SPECIAL_FIRST) - 1)))
+	if (!(arg->ui & ~((1u << SPECIAL_FIRST) - 1))) {
 		XDeleteProperty(dpy, root, XInternAtom(dpy, "_DWM_SPECIAL_TARGET", False));
+		specialpending = -1;
+	}
 	if (m != selmon) {
 		unfocus(selmon->sel, 0);
 		selmon = m;
@@ -306,36 +308,101 @@ viewtag(const Arg *arg)
 }
 
 static void
+centerspecial(Client *c)
+{
+	int ow, oh;
+
+	if (!c)
+		return;
+	ow = c->mon->mw - 2 * SPECIAL_GAP;
+	oh = c->mon->mh - 2 * SPECIAL_GAP;
+	c->isfloating = 1;
+	c->bw = 0;
+	resize(c, c->mon->mx + SPECIAL_GAP, c->mon->my + SPECIAL_GAP, ow, oh, 0);
+	XRaiseWindow(dpy, c->win);
+}
+
+static void
 togglespecial(const Arg *arg)
 {
-	Monitor *m = selmon;
-	Client *c;
-	Arg a;
+	Monitor *m = selmon, *mm, *owner = NULL;
+	Client *c, *next, *shown = NULL;
 	unsigned int mask;
-	int idx = arg->i;
+	Arg a;
+	int idx = arg->i, found = 0;
 
 	if (!m || idx < SPECIAL_FIRST || idx >= LENGTH(tags))
 		return;
 	mask = 1u << idx;
+	a.ui = mask;
 	XDeleteProperty(dpy, root, XInternAtom(dpy, "_DWM_SPECIAL_TARGET", False));
-	/* keep the current workspace visible; the special tag is an overlay */
-	if (m->tagset[m->seltags] & mask) {
-		a.ui = m->tagset[m->seltags] & ~mask;
-		if (!a.ui)
-			a.ui = 1u;
-		view(&a);
+
+	/* one overlay at a time; detect it on any monitor */
+	for (mm = mons; mm; mm = mm->next)
+		if (mm->tagset[mm->seltags] & mask) {
+			owner = mm;
+			break;
+		}
+
+	if (!owner) {
+		for (mm = mons; mm; mm = mm->next)
+			for (c = mm->clients; c; c = c->next)
+				if (c->tags & mask) {
+					found = 1;
+					break;
+				}
+	} else {
+		found = 1;
+	}
+
+	/* remove the overlay from every other monitor */
+	for (mm = mons; mm; mm = mm->next) {
+		if (mm == m || !(mm->tagset[mm->seltags] & mask))
+			continue;
+		mm->tagset[mm->seltags] &= ~mask;
+		if (!mm->tagset[mm->seltags])
+			mm->tagset[mm->seltags] = 1u;
+		arrange(mm);
+	}
+
+	/* toggling the overlay on its current monitor hides it */
+	if (owner == m) {
+		m->tagset[m->seltags] &= ~mask;
+		if (!m->tagset[m->seltags])
+			m->tagset[m->seltags] = 1u;
+		arrange(m);
+		focus(NULL);
+		updatecurrentdesktop();
 		return;
 	}
+
 	tagowner[idx] = m->num;
-	a.ui = m->tagset[m->seltags] | mask;
-	view(&a);
-	for (c = m->clients; c; c = c->next)
-		if (c->tags & mask) {
-			focus(c);
-			return;
+	m->tagset[m->seltags] |= mask;
+
+	/* reuse the same client(s) on whichever monitor they were */
+	for (mm = mons; mm; mm = mm->next)
+		for (c = mm->clients; c; c = next) {
+			next = c->next;
+			if (!(c->tags & mask))
+				continue;
+			if (c->mon != m)
+				sendmon(c, m);
+			c->tags = mask;
+			centerspecial(c);
+			shown = c;
 		}
+
+	arrange(m);
+	updatecurrentdesktop();
+	updateclientlist();
+	if (shown)
+		focus(shown);
+	else
+		focus(NULL);
+
+	if (found)
+		return;
 	specialpending = -1;
-	XDeleteProperty(dpy, root, XInternAtom(dpy, "_DWM_SPECIAL_TARGET", False));
 	if (strcmp(specialcmds[idx - SPECIAL_FIRST][0], "firefox-pwa") == 0) {
 		long target = idx;
 		XChangeProperty(dpy, root, XInternAtom(dpy, "_DWM_SPECIAL_TARGET", False),
