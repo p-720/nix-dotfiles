@@ -308,17 +308,17 @@ viewtag(const Arg *arg)
 }
 
 static void
-centerspecial(Client *c)
+centerspecial(Client *c, Monitor *m)
 {
 	int ow, oh;
 
-	if (!c)
+	if (!c || !m)
 		return;
-	ow = c->mon->mw - 2 * SPECIAL_GAP;
-	oh = c->mon->mh - 2 * SPECIAL_GAP;
+	ow = m->mw - 2 * SPECIAL_GAP;
+	oh = m->mh - 2 * SPECIAL_GAP;
 	c->isfloating = 1;
 	c->bw = 0;
-	resize(c, c->mon->mx + SPECIAL_GAP, c->mon->my + SPECIAL_GAP, ow, oh, 0);
+	resize(c, m->mx + SPECIAL_GAP, m->my + SPECIAL_GAP, ow, oh, 0);
 	XRaiseWindow(dpy, c->win);
 }
 
@@ -388,13 +388,13 @@ togglespecial(const Arg *arg)
 			if (c->mon != m)
 				sendmon(c, m);
 			c->tags = mask;
-			centerspecial(c);
+			centerspecial(c, m);
 			shown = c;
 		}
 
 	arrange(m);
 	if (shown)
-		centerspecial(shown);
+		centerspecial(shown, m);
 	updatecurrentdesktop();
 	updateclientlist();
 	if (shown)
