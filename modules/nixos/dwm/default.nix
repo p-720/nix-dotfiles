@@ -77,7 +77,10 @@ in {
           ${pkgs.feh}/bin/feh --bg-fill --geometry +0+0 /etc/nixos/light.jpg /etc/nixos/light.jpg /etc/nixos/light.jpg
         fi
         (rm -f ~/.cache/status-notifier-item/*.json; status-notifier-watcher) &
-        (while xset q >/dev/null 2>&1; do taffybar; sleep 2; done) &
+        # dyre recompiles taffybar.hs on change and shells out to ghc; that
+        # env's bin must precede PATH but must not leak into the rest of the
+        # session (it also ships a taffybar of its own)
+        (while xset q >/dev/null 2>&1; do PATH=${config.modules.taffybar.ghcEnv}/bin:$PATH ${pkgs.taffybar}/bin/taffybar; sleep 2; done) &
       '';
     };
 

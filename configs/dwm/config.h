@@ -553,7 +553,13 @@ focusdir(const Arg *arg)
 	int dir = arg->i;
 
 	if (!c) {
-		focus(NULL);
+		/* empty workspace: no client to step from, still cross to the adjacent monitor */
+		if ((m = adjmon(dir))) {
+			selmon = m;
+			focus(NULL);
+			updatecurrentdesktop();
+			warppointer(selmon->sel);
+		}
 		return;
 	}
 	cx = c->x + c->w / 2;
@@ -588,8 +594,7 @@ focusdir(const Arg *arg)
 		selmon = m;
 		focus(NULL);
 		updatecurrentdesktop();
-		if (selmon->sel)
-			warppointer(selmon->sel);
+		warppointer(selmon->sel);
 	}
 }
 

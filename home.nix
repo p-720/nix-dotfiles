@@ -7,8 +7,9 @@ in {
       programs.steam.enable = true;
       # programs.steam.package = pkgs.unstable.steam;
       hardware.opentabletdriver.enable = true;
+      # autologin skips password auth so PAM never sees it and the login keyring stays locked
       services.displayManager.autoLogin = {
-        enable = true;
+        enable = false;
         user = config.user;
       };
       environment.systemPackages = [

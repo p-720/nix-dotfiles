@@ -164,7 +164,7 @@
   modules.emacs-with-doom  =
     {
       enable = true;
-      package = pkgs.emacs30-pgtk;
+      # package = pkgs.emacs30;
     };
   services.speechd.enable = false;
   # 1. Turn OFF systemd-oomd so they don't fight

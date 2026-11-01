@@ -317,7 +317,7 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
   programs.dconf.enable = true;
 
   services = {
-    #gnome.gnome-keyring.enable = true;
+    gnome.gnome-keyring.enable = true;
     dbus = {
       enable = true;
       packages = [ ];

@@ -11,6 +11,15 @@ in {
       description = ''
       '';
     };
+    # ghc for dyre's runtime recompile of taffybar.hs. Its bin also contains a
+    # taffybar binary and other packages' tools, so it must stay off the system
+    # PATH and only wrap the bar launch.
+    ghcEnv = mkOption {
+      type = types.package;
+      readOnly = true;
+      default = pkgs.callPackage ./ghc-env.nix { };
+      description = "GHC with the packages taffybar.hs imports, for dyre";
+    };
   };
   # NOTE parens matter: `mkIf en {...} // x` drops x (mkIf wraps the whole
   # attrset and swallows merged siblings); `mkIf en ({...} // x)` keeps it

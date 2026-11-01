@@ -179,14 +179,21 @@ index 9fd0286..f149ab4 100644
  void
  mappingnotify(XEvent *e)
  {
-@@ -1097,7 +1129,9 @@ maprequest(XEvent *e)
+@@ -1097,7 +1129,16 @@ maprequest(XEvent *e)
  		return;
  	if (wa.override_redirect)
  		return;
 -	if (!wintoclient(ev->window))
-+	if (wmclasscontains(ev->window, altbarclass, ""))
-+		managealtbar(ev->window, &wa);
-+	else if (!wintoclient(ev->window))
++	if (wmclasscontains(ev->window, altbarclass, "")) {
++		Window t;
++
++		/* bar popups inherit the bar's WM_CLASS but are transient; mapping
++		 * them unmanaged keeps them out of m->barwin and bh */
++		if (XGetTransientForHint(dpy, ev->window, &t))
++			XMapWindow(dpy, ev->window);
++		else
++			managealtbar(ev->window, &wa);
++	} else if (!wintoclient(ev->window))
  		manage(ev->window, &wa);
  }
  

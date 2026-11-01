@@ -14,7 +14,8 @@
     "npm:@plannotator/pi-extension",
     "git:github.com/okiess/pi-opencode-go-provider@fix/context-window-merge",
     "npm:@sting8k/pi-vcc",
-    "npm:pi-commandcode-provider"
+    "npm:pi-commandcode-provider",
+    "npm:pi-model-system-prompt"
   ],
   "hideThinkingBlock": false,
   "theme": "dark",
