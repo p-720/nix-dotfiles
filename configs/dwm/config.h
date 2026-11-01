@@ -277,6 +277,8 @@ viewtag(const Arg *arg)
 {
 	Monitor *m = tagmonitor(arg->ui), *prev = selmon;
 
+	if (!(arg->ui & ~((1u << SPECIAL_FIRST) - 1)))
+		XDeleteProperty(dpy, root, XInternAtom(dpy, "_DWM_SPECIAL_TARGET", False));
 	if (m != selmon) {
 		unfocus(selmon->sel, 0);
 		selmon = m;
