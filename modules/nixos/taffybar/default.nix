@@ -46,7 +46,7 @@ in {
       ".config/taffybar/gotham.css".source =
         config.lib.file.mkOutOfStoreSymlink "/etc/nixos/modules/nixos/taffybar/gotham.css";
       ".config/taffybar/taffybar.hs".source =
-        config.lib.file.mkOutOfStoreSymlink "/etc/nixos/modules/nixos/taffybar/build/taffybar/taffybar.hs";
+        config.lib.file.mkOutOfStoreSymlink "/etc/nixos/modules/nixos/taffybar/taffybar.hs";
     };
   })));
 }

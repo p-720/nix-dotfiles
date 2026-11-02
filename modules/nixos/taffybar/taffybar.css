@@ -14,6 +14,11 @@
 	text-shadow: none;
 }
 
+/* display 1 (secondary) sits flush against the right screen edge; ease off */
+window.secondary {
+	padding-right: 8px;
+}
+
 .taffy-box {
 	background-color: rgba(0, 0, 0, 0.5);
 	border: none;
@@ -46,6 +51,49 @@
 
 .pulseaudio.muted label {
 	color: #2a5c45;
+}
+
+/* Waybar-style volume sliders: 80x10 trough, drag to set, scroll to step. */
+
+.volume-slider,
+.mic-slider {
+	padding: 0;
+	margin: 0;
+}
+
+.volume-slider progressbar,
+.mic-slider progressbar {
+	background: transparent;
+	border: none;
+	box-shadow: none;
+	padding: 0;
+	min-width: 80px;
+	min-height: 16px;
+}
+
+.volume-slider trough,
+.mic-slider trough {
+	background: black;
+	border: none;
+	box-shadow: none;
+	border-radius: 8px;
+	min-width: 80px;
+	min-height: 16px;
+}
+
+.volume-slider progress,
+.mic-slider progress {
+	background: green;
+	border: none;
+	box-shadow: none;
+	border-radius: 8px 0 0 8px;
+	min-width: 16px;
+	min-height: 16px;
+}
+
+.volume-slider.muted progress,
+.mic-slider.muted progress {
+	background: #90b1b1;
 }
 
 .pomotask {

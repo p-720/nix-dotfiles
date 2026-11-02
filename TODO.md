@@ -8,7 +8,7 @@ Make taffybar look like waybar and carry the same modules that have taffybar equ
 
 ### 1. Taffybar module layout
 
-- [x] Rewrite `modules/nixos/taffybar/build/taffybar/taffybar.hs` with per-monitor configs.
+- [x] Rewrite `modules/nixos/taffybar/taffybar.hs` with per-monitor configs.
 - [x] Primary monitor (LG): workspaces, idle inhibitor, memory / gcal, clock / pomotask, polypomo, weather, pulseaudio.
 - [x] Secondary monitor (AOC): workspaces, idle inhibitor, memory, disk / gcal, clock / pomotask, pulseaudio, tray.
 - [x] Remove the static "DONT FORGET TO START THE EMACS TIMER" label.

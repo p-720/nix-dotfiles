@@ -3,7 +3,7 @@
 let
   # dyre shells out to `ghc` when taffybar.hs changes, so the session PATH needs
   # a ghc that already exposes the packages the config imports. Keep this list
-  # in sync with build/taffybar/my-taffybar.cabal.
+  # in sync with the imports in taffybar.hs.
   ghc = pkgs.haskellPackages.ghcWithPackages (p: [
     p.X11
     p.bytestring

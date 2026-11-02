@@ -738,8 +738,6 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
     # my.chatgpt
     neovim
     # unstable.elementary-planner
-    # (haskellPackages.callPackage /etc/nixos/modules/nixos/taffybar/build/taffybar.nix
-    #   { })
     kdiskmark
     # Config https://github.com/elken/tabbed/blob/master/config.h
     # pkgs.tabbed.override {
