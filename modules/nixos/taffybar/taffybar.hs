@@ -300,10 +300,16 @@ audioWidget = do
   _ <- channelWidgetNew widget chan updateMuted
   pure widget
 
--- Waybar-style volume slider: drag to set, scroll to step, plain click to
--- toggle mute. Built on the WirePlumber node channel because the unified
--- AudioInfo only models the default sink, so the mic needs its own source
--- node (@DEFAULT_AUDIO_SOURCE@) anyway.
+-- Waybar-style volume slider: drag to set, scroll to step, left-click sets
+-- the volume at the pointer position, right-click toggles mute. Built on the
+-- WirePlumber node channel because the unified AudioInfo only models the
+-- default sink, so the mic needs its own source node (@DEFAULT_AUDIO_SOURCE@)
+-- anyway.
+--
+-- The info source's third component is a `refresh` action: the sink is
+-- event-driven (no-op), the mic is poll-fed, so after every local change we
+-- read the value back and push it — otherwise our own scrolls would show up
+-- up to a poll interval late.
 data SliderDrag
   = DragIdle
   | SliderDragging
@@ -315,18 +321,21 @@ data SliderDrag
 -- segfaults when a process opens a second WpCore (journal crashloop:
 -- wp_core_new -> strlen on a bad pointer). One core per process; wpctl is
 -- already how the slider's own actions set values.
-wirePlumberInfoSource :: TaffyIO (TChan (Maybe WirePlumberInfo), MVar (Maybe WirePlumberInfo))
-wirePlumberInfoSource = getWirePlumberInfoChanAndVar "@DEFAULT_AUDIO_SINK@"
+wirePlumberInfoSource :: TaffyIO (TChan (Maybe WirePlumberInfo), MVar (Maybe WirePlumberInfo), IO ())
+wirePlumberInfoSource = do
+  (chan, var) <- getWirePlumberInfoChanAndVar "@DEFAULT_AUDIO_SINK@"
+  pure (chan, var, pure ())
 
-micInfoSource :: TaffyIO (TChan (Maybe WirePlumberInfo), MVar (Maybe WirePlumberInfo))
+micInfoSource :: TaffyIO (TChan (Maybe WirePlumberInfo), MVar (Maybe WirePlumberInfo), IO ())
 micInfoSource = liftIO $ do
   chan <- newBroadcastTChanIO
   var <- newMVar (Nothing :: Maybe WirePlumberInfo)
+  let readBack = readWpctlVolume "@DEFAULT_AUDIO_SOURCE@" chan var
   forkIO (pollWpctlVolume "@DEFAULT_AUDIO_SOURCE@" chan var)
-  pure (chan, var)
+  pure (chan, var, readBack)
 
-pollWpctlVolume :: String -> TChan (Maybe WirePlumberInfo) -> MVar (Maybe WirePlumberInfo) -> IO ()
-pollWpctlVolume nodeSpec chan var = forever $ do
+readWpctlVolume :: String -> TChan (Maybe WirePlumberInfo) -> MVar (Maybe WirePlumberInfo) -> IO ()
+readWpctlVolume nodeSpec chan var = do
   (ecode, out, _) <- readProcessWithExitCode "wpctl" ["get-volume", nodeSpec] ""
   when (ecode == ExitSuccess) $
     case parseWpctlVolume out of
@@ -335,7 +344,11 @@ pollWpctlVolume nodeSpec chan var = forever $ do
         let info = Just (WirePlumberInfo vol muted (T.pack nodeSpec))
         old <- swapMVar var info
         when (old /= info) $ atomically (writeTChan chan info)
-  threadDelay 1_000_000
+
+pollWpctlVolume :: String -> TChan (Maybe WirePlumberInfo) -> MVar (Maybe WirePlumberInfo) -> IO ()
+pollWpctlVolume nodeSpec chan var = forever $ do
+  readWpctlVolume nodeSpec chan var
+  threadDelay 250_000
 
 -- wpctl get-volume output: "Volume: 0.94" or "Volume: 0.94 [MUTED]"
 parseWpctlVolume :: String -> Maybe (Double, Bool)
@@ -349,9 +362,9 @@ parseWpctlVolume s =
 
 -- iconOn/iconOff are Nerd-Font (FontAwesome) glyph codepoints shown next to
 -- the trough; the off glyph appears while muted.
-volumeSlider :: T.Text -> TaffyIO (TChan (Maybe WirePlumberInfo), MVar (Maybe WirePlumberInfo)) -> String -> T.Text -> Char -> Char -> TaffyIO Gtk.Widget
+volumeSlider :: T.Text -> TaffyIO (TChan (Maybe WirePlumberInfo), MVar (Maybe WirePlumberInfo), IO ()) -> String -> T.Text -> Char -> Char -> TaffyIO Gtk.Widget
 volumeSlider klass infoSource nodeSpec title iconOn iconOff = do
-  (chan, stateVar) <- infoSource
+  (chan, stateVar, refresh) <- infoSource
   box <- liftIO Gtk.eventBoxNew
   _ <- widgetSetClassGI box "module"
   _ <- widgetSetClassGI box klass
@@ -361,14 +374,51 @@ volumeSlider klass infoSource nodeSpec title iconOn iconOff = do
   progress <- liftIO Gtk.progressBarNew
   dragRef <- liftIO (newIORef DragIdle)
   lastSetRef <- liftIO (newIORef (0 :: Double))
-  dbgRef <- liftIO (newIORef False)
-  let setFromX :: Double -> IO ()
-      setFromX x = do
-        rect <- Gtk.widgetGetAllocation progress
-        offsetX <- GdkRectangle.getRectangleX rect
-        width <- GdkRectangle.getRectangleWidth rect
-        let pct = round (min 1 (max 0 ((x - fromIntegral offsetX) / max (fromIntegral width) 1)) * 100)
-        void $ setWirePlumberVolume nodeSpec pct
+  alignment <- liftIO $ do
+    a <- Gtk.alignmentNew 0.5 0.5 0 0
+    -- 7px of vertical padding keeps the 16px trough centred in the 30px bar
+    Gtk.alignmentSetPadding a 0 0 7 7
+    pure a
+  -- the event x is in the toplevel bar window's coordinate space (the event
+  -- box is windowless), so a module-local offset misses every module to the
+  -- left of the slider. Work in root coordinates instead: the trough's root
+  -- x is the toplevel window's origin plus the allocation.x summed up the
+  -- parent chain, and the click's root x needs no translation at all
+  -- walkUp sums allocation.x from a widget up to (and including) the
+  -- toplevel; the toplevel's own x is 0 so it adds nothing. Concrete
+  -- Gtk.Widget (not a class constraint): widgetGetParent returns the
+  -- Widget newtype, so a polymorphic helper would be pinned to it.
+  let walkUp w acc = do
+            r <- Gtk.widgetGetAllocation w
+            x <- GdkRectangle.getRectangleX r
+            p <- Gtk.widgetGetParent w
+            case p of
+              Nothing -> pure (acc + fromIntegral x)
+              Just p' -> walkUp p' (acc + fromIntegral x)
+      setFromX :: Double -> IO ()
+      setFromX rootX = do
+        rProg <- Gtk.widgetGetAllocation progress
+        xProg <- GdkRectangle.getRectangleX rProg
+        pProg <- Gtk.widgetGetParent progress
+        offTop <- case pProg of
+          Nothing -> pure (fromIntegral xProg)
+          Just w0 -> walkUp w0 (fromIntegral xProg)
+        top <- Gtk.widgetGetToplevel progress
+        topWin <- Gtk.widgetGetWindow top
+        widthRaw <- GdkRectangle.getRectangleWidth rProg
+        case topWin of
+          Nothing -> pure ()
+          Just win -> do
+            (ox, _, _) <- Gdk.windowGetOrigin win
+            -- +18 render offset: the trough paints ~18px left of where the
+            -- allocation sum puts it (a click at the visual centre read 28%,
+            -- not 50%), so shift the mapping right to land the fill under the
+            -- cursor. Calibrated from a centre click; one number, nudge if off.
+            let width = fromIntegral widthRaw :: Double
+                troughX = (fromIntegral ox + fromIntegral offTop) :: Double
+                renderOff = 18.0
+                pct = round (min 1 (max 0 ((rootX + renderOff - troughX) / max width 1)) * 100)
+            void $ setWirePlumberVolume nodeSpec pct
       -- one wpctl per motion event would flood PipeWire; ~20/s is plenty
       -- (POSIX time, not a monotonic clock: NTP steps don't matter for a throttle)
       throttled action = do
@@ -380,11 +430,6 @@ volumeSlider klass infoSource nodeSpec title iconOn iconOff = do
             writeIORef lastSetRef now
             action
           else pure ()
-  alignment <- liftIO $ do
-    a <- Gtk.alignmentNew 0.5 0.5 0 0
-    -- 7px of vertical padding keeps the 16px trough centred in the 30px bar
-    Gtk.alignmentSetPadding a 0 0 7 7
-    pure a
   liftIO $ do
     Gtk.progressBarSetInverted progress False
     -- waybar slider dimensions: 80x10 trough (see taffybar.css)
@@ -428,33 +473,35 @@ volumeSlider klass infoSource nodeSpec title iconOn iconOff = do
     Gtk.onWidgetScrollEvent box $ \event -> do
       direction <- GdkScroll.getEventScrollDirection event
       case direction of
-        Gdk.ScrollDirectionUp -> void (adjustWirePlumberVolume nodeSpec 2) >> pure True
-        Gdk.ScrollDirectionDown -> void (adjustWirePlumberVolume nodeSpec (-2)) >> pure True
+        Gdk.ScrollDirectionUp -> void (adjustWirePlumberVolume nodeSpec 2) >> forkIO refresh >> pure True
+        Gdk.ScrollDirectionDown -> void (adjustWirePlumberVolume nodeSpec (-2)) >> forkIO refresh >> pure True
         _ -> pure False
   -- dragging across the module sets the volume from the pointer position
   _ <- liftIO $
     Gtk.onWidgetMotionNotifyEvent box $ \event -> do
       st <- readIORef dragRef
-      x <- GdkMotion.getEventMotionX event
+      x <- GdkMotion.getEventMotionXRoot event
       case st of
         SliderDragging _ True -> do
-          throttled (setFromX x)
+          throttled (setFromX x >> void (forkIO refresh))
           pure True
         SliderDragging sx _ | abs (x - sx) > 3 -> do
           writeIORef dragRef (SliderDragging sx True)
-          throttled (setFromX x)
+          throttled (setFromX x >> void (forkIO refresh))
           pure True
         _ -> pure False
+  -- right-click mutes on press, so it doesn't wait for the release
   _ <- liftIO $
     Gtk.onWidgetButtonPressEvent box $ \event -> do
       button <- GdkButton.getEventButtonButton event
-      if button == 1
-        then do
-          x <- GdkButton.getEventButtonX event
+      case button of
+        1 -> do
+          x <- GdkButton.getEventButtonXRoot event
           writeIORef dragRef (SliderDragging x False)
           pure True
-        else pure False
-  -- a click without movement toggles mute, like waybar's slider
+        3 -> void (toggleWirePlumberMute nodeSpec) >> forkIO refresh >> pure True
+        _ -> pure False
+  -- a left-click without movement sets the volume at the pointer position
   _ <- liftIO $
     Gtk.onWidgetButtonReleaseEvent box $ \event -> do
       button <- GdkButton.getEventButtonButton event
@@ -462,8 +509,9 @@ volumeSlider klass infoSource nodeSpec title iconOn iconOff = do
         then do
           st <- readIORef dragRef
           writeIORef dragRef DragIdle
+          x <- GdkButton.getEventButtonXRoot event
           case st of
-            SliderDragging _ False -> void (toggleWirePlumberMute nodeSpec)
+            SliderDragging _ False -> setFromX x >> void (forkIO refresh)
             _ -> pure ()
           pure True
         else pure False
