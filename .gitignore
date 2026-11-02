@@ -13,7 +13,6 @@ tmp/
 
 *.py[cod]
 *.egg
-build
 htmlcov
 
 *.sqlite

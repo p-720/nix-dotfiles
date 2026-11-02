@@ -5,6 +5,11 @@
   stdenv,
   dbus,
   fetchFromGitHub,
+  libX11,
+  libXi,
+  libXcursor,
+  libXinerama,
+  libXrandr,
   libxkbcommon,
   vulkan-loader,
   wayland,
@@ -38,6 +43,11 @@ rustPlatform.buildRustPackage (finalAttrs: {
 
   runtimeDependencies = [
     dbus.lib
+    libX11
+    libXi
+    libXcursor
+    libXinerama
+    libXrandr
     libxkbcommon
     vulkan-loader
     wayland

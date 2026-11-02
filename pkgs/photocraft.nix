@@ -4,6 +4,11 @@
   autoPatchelfHook,
   stdenv,
   fetchFromGitHub,
+  libX11,
+  libXi,
+  libXcursor,
+  libXinerama,
+  libXrandr,
   libxkbcommon,
   vulkan-loader,
   wayland,
@@ -36,6 +41,11 @@ rustPlatform.buildRustPackage (finalAttrs: {
   doCheck = false;
 
   runtimeDependencies = [
+    libX11
+    libXi
+    libXcursor
+    libXinerama
+    libXrandr
     libxkbcommon
     vulkan-loader
     wayland

@@ -2796,15 +2796,15 @@
         "nixpkgs": "nixpkgs_18"
       },
       "locked": {
-        "lastModified": 1793428884,
-        "narHash": "sha256-4NUVst3GZf4FSNLtZ+4Zyv3RmwsGpk748LBgDyvUoBs=",
-        "owner": "p-720",
+        "lastModified": 1793607014,
+        "narHash": "sha256-sm4kPwSruutcMQCh0Pg/ny+52ldxYEvYydHUuwGG6OI=",
+        "owner": "omarcresp",
         "repo": "t3code-flake",
-        "rev": "395fb4649d154e342a24ba47a54fae192a0fcfac",
+        "rev": "efb984f597106793984bce573d0a81d2e1d426cf",
         "type": "github"
       },
       "original": {
-        "owner": "p-720",
+        "owner": "omarcresp",
         "repo": "t3code-flake",
         "type": "github"
       }
