@@ -1,6 +1,3 @@
-[submodule "modules/nixos/taffybar/build/taffybar"]
-	path = modules/nixos/taffybar/build/taffybar
-	url = git@github.com:p-720/my-taffybar-config.git
 [submodule "configs/ideavim/.intellimacs"]
 	path = configs/ideavim/.intellimacs
 	url = https://github.com/MarcoIeni/intellimacs.git
