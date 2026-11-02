@@ -1,3 +1,9 @@
 sessions/
 .pi-lens/
 auth.json
+models.json
+mcp-*.json
+crashes.json
+run-history.jsonl
+missions/
+.playwright-mcp/

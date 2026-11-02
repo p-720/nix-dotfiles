@@ -19,10 +19,15 @@ htmlcov
 *.sqlite
 
 configs/fcitx5/profile
+configs/fcitx5/profile_*
 .aider*
 meta.db-shm
 meta.db
 meta.db-wal
+*.db
+*.sqlite
+*.swp
+*.tmp
 cache/
 models-store.json
 web-search-cache
