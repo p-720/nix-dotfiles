@@ -17,6 +17,7 @@ let
       ./patches/ewmhclick.diff
       ./patches/nobardrw.diff
       ./patches/attachbottom.diff
+      ./patches/dragmfact.diff
     ];
   };
 in {
