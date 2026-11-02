@@ -34,6 +34,7 @@ static const char *tags[] = {
 };
 #define SPECIAL_FIRST 12
 #define SPECIAL_GAP 50
+#define SPECIALTAGS  ((((1u << LENGTH(tags)) - 1) ^ ((1u << SPECIAL_FIRST) - 1)))
 static int specialpending = -1;
 /* tags 1-6 start on monitor 0, 7-12 on monitor 1; movetag updates this */
 static int tagowner[LENGTH(tags)] = {
@@ -381,6 +382,8 @@ togglespecial(const Arg *arg)
 	}
 
 	tagowner[idx] = m->num;
+	/* one overlay per monitor: drop the other special tags before adding this one */
+	m->tagset[m->seltags] &= ~SPECIALTAGS;
 	m->tagset[m->seltags] |= mask;
 
 	/* reuse the same client(s) on whichever monitor they were */
