@@ -245,7 +245,7 @@
       kdePackages.breeze-gtk
       # libsForQt5.breeze-qt5
       nixfmt
-      gimp
+      # gimp
       mpv
       playerctl
       brave

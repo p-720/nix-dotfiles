@@ -6,7 +6,7 @@ in {
     configuration = {
       programs.steam.enable = true;
       # programs.steam.package = pkgs.unstable.steam;
-      hardware.opentabletdriver.enable = true;
+      # hardware.opentabletdriver.enable = true;
       # autologin skips password auth so PAM never sees it and the login keyring stays locked
       services.displayManager.autoLogin = {
         enable = false;
@@ -49,10 +49,10 @@ in {
           ];
         })
         # pkgs.unstable.stremio
-        pkgs.my.osu-lazer-bin
+        # pkgs.my.osu-lazer-bin
         # pkgs.my.tlauncher
         # pkgs.unstable.osu-lazer-bin
-        pkgs.chatterino2
+        # pkgs.chatterino2
       ];
     };
     inheritParentConfig = true;

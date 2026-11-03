@@ -101,6 +101,7 @@
   };
 
   hardware.graphics.enable = true;
+  hardware.graphics.enable32Bit = true;
   hardware.graphics.extraPackages = with pkgs;
     [
       ocl-icd
@@ -547,8 +548,8 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
   # modules.timed-lock.enable = false;
   # modules.timed-lock.time = "23:00:00";
   modules.vm.enable = false;
-  zramSwap.enable = true;
-  modules.sunshine.enable = true;
+  zramSwap.enable = false;
+  modules.sunshine.enable = false;
   # zramSwap.memoryPercent = 80;
   # zramSwap.writebackDevice = "/dev/sdb1";
 
@@ -587,7 +588,7 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
     my.computer-use-linux
 
     # my.hbctool
-    oscar
+    # oscar
     poetry
     putty
     # texliveMedium
@@ -596,7 +597,7 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
     gucharmap
     # autokey
     alsa-utils
-    wgcf
+    # wgcf
     # my.amneziawg-tools
     # my.amneziawg-go
     wget
@@ -619,7 +620,7 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
     localtunnel
     # pr218037.microsoft-edge-dev
     gcc.cc.libgcc
-    gemini-cli
+    # gemini-cli
     # my.gemini
     gcc.cc.libgcc.lib
     nwg-drawer
@@ -656,7 +657,7 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
     # vscode
     ddcutil
 
-    yandex-disk
+    # yandex-disk
     gpu-screen-recorder
     shared-mime-info
     clinfo
@@ -760,7 +761,7 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
     # TODO FIX
     # (old-23.gimp.override { withPython = true; })
     # krita
-    inkscape
+    # inkscape
     evince
     sidequest
     xorg.xwininfo
@@ -811,7 +812,7 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
     xdotool
     tldr
     unstable.claude-code
-    cheat
+    # cheat
     # libsForQt5.breeze-gtk
     # libsForQt5.breeze-qt5
     pasystray
@@ -828,7 +829,8 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
     # picom
     my.photocraft
     my.vectorcraft
-    grok-bot
+    my.strata
+    # grok-bot
     t3-code
     gh
     playwright-mcp
@@ -861,7 +863,7 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
     #     sha256 = "sha256-/x7VZssjPk17gYSXxU/4KdHSdOjxW8ncWxItwj7lA/Y=";};
     # }))
     playwright-test
-    open-webui
+    # open-webui
     ddcutil
     unstable.telegram-desktop
     my.ketch

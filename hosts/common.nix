@@ -3,7 +3,6 @@
 {
   environment.systemPackages = with pkgs;
     [
-      pomotasker
       yt-dlp
       nix-index
       gcalcli
@@ -13,7 +12,7 @@
       libnotify
       cachix
       vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
-      kdePackages.kdenlive
+      # kdePackages.kdenlive
       my.pythonbin
       video-trimmer
       git
@@ -21,11 +20,11 @@
       socat
       ripgrep
       # shell-gpt
-      ai-shell
+      # ai-shell
       wmctrl
       kdePackages.breeze-gtk
       fd
-      gimp3
+      # gimp3
       mpv
       jq
       nix-tree
@@ -176,12 +175,13 @@
     enableNotifications = true;    
 
     # Trigger when free RAM drops below 6% AND free Swap drops below 6%
-    freeMemThreshold = 6;
-    freeSwapThreshold = 6;
+    freeMemThreshold = 2;
+    freeSwapThreshold = 2;
+    extraArgs = [ "--ignore" "^(strata.*|node-MainThread|t3.*)$" ];
     
     # Tell earlyoom to send SIGKILL instantly when under 2% RAM 
     # to completely bypass system lockups.
-    freeMemKillThreshold = 2; 
+    freeMemKillThreshold = 1; 
 
     # Highly Recommended: Prevent it from accidentally killing your desktop environment
     # extraArgs = [

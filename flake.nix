@@ -66,6 +66,12 @@
     todolist-web.url = "github:p-720/todolist-web";
     zen-browser.url = "github:0xc000022070/zen-browser-flake";
     nixpkgs-amnezia.url = "github:averyanalex/nixpkgs/amneziawg";
+    # Ampere tensor-core unlock (RTX 3090 on this box): builds gpu_unlock.ko
+    # against the host kernel and loads it in stage-1 before nvidia.ko probes
+    gpu-unlock = {
+      url = "github:Sticzu/nixos-gpu-unlock";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     # hy3 = {
     #   url = "github:outfoxxed/hy3?ref=hl0.47.0-1";
     #   inputs.hyprland.follows = "hyprland";
@@ -75,7 +81,7 @@
   outputs = inputs@{ self, nixpkgs, poetry2nix, tdesktop, playwright-cli
     , zen-browser, compfy, nixos-unstable, void-editor, hyprland,
     nixpkgs-amnezia, nanobanana, ai-shell, home-manager, appblocker
-    , spl3g-config, pomotasker, todolist-web, ... }:
+    , spl3g-config, pomotasker, todolist-web, gpu-unlock, ... }:
     let
       lib = nixpkgs.lib.extend
         (self: super: { my = import ./lib/util.nix { lib = nixpkgs.lib; }; });
@@ -234,6 +240,7 @@
             home-manager.nixosModules.home-manager
             appblocker.nixosModules.default
             nanobanana.nixosModules.default
+            gpu-unlock.nixosModules.default
             # hyprland.nixosModules.default
             ./home.nix
             ./hosts/main/configuration.nix
