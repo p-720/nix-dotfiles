@@ -1,7 +1,7 @@
 {
   "lastChangelogVersion": "1.4.0",
-  "defaultProvider": "qwen38-huge",
-  "defaultModel": "qwen3.8-27b",
+  "defaultProvider": "qwen38-next",
+  "defaultModel": "iq3_xxs",
   "defaultThinkingLevel": "xhigh",
   "compaction": {
     "enabled": true,
@@ -10,8 +10,6 @@
   },
   "packages": [
     "npm:pi-ask-user",
-    "npm:pi-mcp-adapter",
-    "npm:@plannotator/pi-extension",
     "git:github.com/okiess/pi-opencode-go-provider@fix/context-window-merge",
     "npm:@sting8k/pi-vcc",
     "npm:pi-commandcode-provider",

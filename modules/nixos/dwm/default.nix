@@ -28,16 +28,6 @@ in {
   config = mkIf cfg.enable {
     modules.taffybar.enable = mkDefault true;
 
-    # X11 only: Wayland/Hyprland keeps hardware GL
-    services.xserver.displayManager.sessionCommands = ''
-      export LIBGL_ALWAYS_SOFTWARE=1
-      export __GLX_VENDOR_LIBRARY_NAME=mesa
-      export MESA_LOADER_DRIVER_OVERRIDE=llvmpipe
-      export GALLIUM_DRIVER=llvmpipe
-      export __EGL_VENDOR_LIBRARY_FILENAMES=/run/opengl-driver/share/glvnd/egl_vendor.d/50_mesa.json
-      export VK_ICD_FILENAMES=/run/opengl-driver/share/vulkan/icd.d/lvp_icd.x86_64.json
-      export VK_DRIVER_FILES=/run/opengl-driver/share/vulkan/icd.d/lvp_icd.x86_64.json
-    '';
 
     # SDDM's greeter starts before the session xrandr layout; keep its login on DP-1
     services.xserver.displayManager.setupCommands =

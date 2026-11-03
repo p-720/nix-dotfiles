@@ -94,7 +94,7 @@
   '';
   services.displayManager = {
     enable = true;
-    defaultSession = "hyprland";
+    defaultSession = "none+dwm";
 
     sddm.enable = true;
     sddm.package = pkgs.kdePackages.sddm;
@@ -136,7 +136,7 @@
     #   user = config.user;
     # };
   };
-  modules.hypr.enable = true;
+  modules.hypr.enable = false;
   modules.dwm.enable = true;
 
   security.sudo = {

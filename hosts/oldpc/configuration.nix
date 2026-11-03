@@ -3,9 +3,10 @@
 {
   imports = [
     ./hardware-configuration.nix
-    ./NVFanControl.nix
+    # ./NVFanControl.nix
   ];
   modules.flakes.enable = true;
+  modules.taffybar.enable = true;
 
   # users.users.andrew.extraGroups = ["corectrl" "gamemode"];
   # programs.corectrl ={
@@ -73,7 +74,7 @@
 
   services.xserver = {
     enable = true;
-    videoDrivers = [ "modesetting" ];
+    videoDrivers = [ "nvidia" ];
     dpi = 96;
 
     # Doesnt work
@@ -167,6 +168,10 @@
   users.defaultUserShell = pkgs.fish;
   programs.fish.enable = true;
 
+  # HM sets dconf.settings (common.nix). Without this the session bus has no
+  # ca.desrt.dconf.service, so dconfSettings activation dies and linkGeneration
+  # never runs: home.file links stop updating.
+  programs.dconf.enable = true;
 
   services = {
     dbus = {
@@ -245,6 +250,7 @@
       kdePackages.kdenlive
       libusb1
       ffmpeg
+      t3-code
       peco
       xclip
       mc
@@ -256,18 +262,18 @@
       stremio-linux-shell
       anki-bin
       tldr
-      (pkgs.wrapOBS.override {
-        obs-studio = obs-studio.override { cudaSupport = true;};
-      } {
-        plugins = with pkgs.obs-studio-plugins; [
-          # obs-gstreamer
-          # obs-vkcapture
-          # obs-vaapi
-          # wlrobs
-          # droidcam-obs
-          obs-multi-rtmp
-        ];
-      })
+      # (pkgs.wrapOBS.override {
+      #   obs-studio = obs-studio.override { cudaSupport = true;};
+      # } {
+      #   plugins = with pkgs.obs-studio-plugins; [
+      #     # obs-gstreamer
+      #     # obs-vkcapture
+      #     # obs-vaapi
+      #     # wlrobs
+      #     # droidcam-obs
+      #     obs-multi-rtmp
+      #   ];
+      # })
       # (pkgs.wrapOBS.override {
       #   obs-studio = obs-studio.override { cudaSupport = true;};
       # } {
@@ -296,7 +302,7 @@
       # unstable-small.tdesktop
       jpegoptim
       kdePackages.filelight
-      anydesk
+      # anydesk
       gedit
       qbittorrent
       nautilus

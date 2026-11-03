@@ -96,12 +96,14 @@ lib.my.withHome
         # 32768-frame buffer (683ms) with a 128-frame period (256 periods), which
         # underruns constantly ("snd_pcm_mmap_commit: Broken pipe"). Capping the
         # quantum bounds the request and shrinks the buffer the driver picks.
-        "10-quantum" = {
-          "context.properties" = {
-            "default.clock.quantum" = 512;
-            "default.clock.quantum-limit" = 512;
-          };
-        };
+
+        # "10-quantum" = {
+        #   "context.properties" = {
+        #     "default.clock.quantum" = 512;
+        #     "default.clock.quantum-limit" = 512;
+        #   };
+        # };
+
         # DISABLED: this chain captured the CM108 (the piano's input) and applied
         # RNNoise to it. Two problems, both audible as choppy/stuttering piano:
         #   1. RNNoise is a speech gate; on piano it truncates note tails.
