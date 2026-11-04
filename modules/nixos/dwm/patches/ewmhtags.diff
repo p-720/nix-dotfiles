@@ -126,20 +126,22 @@
  
  void
  seturgent(Client *c, int urg)
-@@ -1747,6 +1789,8 @@
+@@ -1746,7 +1789,9 @@
+ 		selmon->sel->tags = newtags;
++		updatecurrentdesktop();
  		focus(NULL);
  		arrange(selmon);
  	}
-+	updatecurrentdesktop();
 +	updateclientlist();
  }
  
  void
-@@ -1759,6 +1803,8 @@
+@@ -1758,7 +1803,9 @@
+ 		selmon->tagset[selmon->seltags] = newtagset;
++		updatecurrentdesktop();
  		focus(NULL);
  		arrange(selmon);
  	}
-+	updatecurrentdesktop();
 +	updateclientlist();
  }
  
@@ -187,9 +189,9 @@
  int
 @@ -2059,6 +2131,7 @@
  		selmon->tagset[selmon->seltags] = arg->ui & TAGMASK;
++	updatecurrentdesktop();
  	focus(NULL);
  	arrange(selmon);
-+	updatecurrentdesktop();
  }
  
  Client *

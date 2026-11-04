@@ -284,8 +284,11 @@ movetag(const Arg *arg)
 
 	claimtag(m, tag);
 	selmon = m;
-	focus(NULL);
+	/* property before arrange: picom only classifies a state change as a workspace
+	   switch when _NET_CURRENT_DESKTOP already moved (pijulius/picom cee741a4). Buys
+	   nothing until dwm stops sliding hidden clients instead of unmapping them. */
 	updatecurrentdesktop();
+	focus(NULL);
 	arrange(NULL);
 }
 
@@ -648,9 +651,9 @@ togglespecial(const Arg *arg)
 			unfocus(selmon->sel, 0);
 			selmon = own;
 		}
+		updatecurrentdesktop();
 		arrange(own);
 		focus(NULL);
-		updatecurrentdesktop();
 		updateclientlist();
 		return;
 	}
@@ -663,8 +666,8 @@ togglespecial(const Arg *arg)
 		m->tagset[m->seltags] &= ~mask;
 		if (!m->tagset[m->seltags])
 			m->tagset[m->seltags] = hometag(m);
-		arrange(m);
 		updatecurrentdesktop();
+		arrange(m);
 		updateclientlist();
 		return;
 	}
@@ -698,6 +701,7 @@ togglespecial(const Arg *arg)
 	if (shown)
 		shown->tags = mask;
 
+	updatecurrentdesktop();
 	arrange(m);
 	if (shown) {
 		centerspecial(shown, m);
@@ -709,7 +713,6 @@ togglespecial(const Arg *arg)
 			spawn(&(Arg){ .v = specialcmds[pos] });
 		}
 	}
-	updatecurrentdesktop();
 	updateclientlist();
 }
 
@@ -746,9 +749,9 @@ toggleviewtag(const Arg *arg)
 	} else {
 		claimtag(selmon, mask);
 	}
+	updatecurrentdesktop();
 	focus(NULL);
 	arrange(selmon);
-	updatecurrentdesktop();
 	updateclientlist();
 }
 
@@ -778,8 +781,8 @@ tagclientto(const Arg *arg)
 		sendmon(c, m);
 	c->tags = mask;
 	focus(c);
-	arrange(m);
 	updatecurrentdesktop();
+	arrange(m);
 	updateclientlist();
 }
 
