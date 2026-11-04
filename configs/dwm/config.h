@@ -102,7 +102,9 @@ telegram(Monitor *m)
 	int n = 0, i, x, w, yy, rh, fw, tw;
 
 	for (c = m->clients; c; c = c->next) {
-		if (!ISVISIBLE(c))
+		/* the overlays are floating and sized by centerspecial(); counting one as a tiled
+		   client reserved a column for a window this layout never places */
+		if (!ISVISIBLE(c) || c->isfloating)
 			continue;
 		if (!ff && strstr(c->clas, "irefox"))
 			ff = c;
@@ -253,10 +255,9 @@ claimtag(Monitor *m, unsigned int mask)
 			c->tags = mask;
 		}
 	}
-	/* the layout has to follow the view before anything arranges it: dwm 6.6 arrange()
-	   runs the layout the monitor already has, so picking it after view() let view()
-	   arrange workspace 11 with tile first - firefox 70% master, telegram 30% slave -
-	   and only then with ff-tg */
+	/* a monitor that just lost this tag arranges whatever is left of its own view, so its
+	   layout follows that view. The monitor about to *display* mask is synced by viewtag
+	   with the whole view view() installs, which claimtag cannot see yet. */
 	for (mm = mons; mm; mm = mm->next)
 		telegramlayout(mm, mm->tagset[mm->seltags]);
 	for (i = 0; i < LENGTH(tags); i++)
@@ -378,6 +379,9 @@ viewtag(const Arg *arg)
 	}
 
 	claimtag(m, arg->ui & ((1u << SPECIAL_FIRST) - 1));
+	/* the view view() installs replaces the whole tagset, so claimtag's sync - which still
+	   saw workspace 11 in it - cannot decide this monitor's layout */
+	telegramlayout(m, arg->ui & TAGMASK);
 	/* view() arranges only when the tagset changes, so this is recorded before it: when
 	   view() early-returns, this arrange is what applies the layout claimtag chose */
 	earlyreturn = (m->tagset[m->seltags] == (arg->ui & TAGMASK));

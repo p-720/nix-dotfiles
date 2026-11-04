@@ -47,5 +47,26 @@ telegram 572 slave) then ff-tg (firefox 384, telegram 1536). Leaving 11 was one 
         slave) -> ff-tg (256 / 1024). Parked: Telegram -2056, Firefox -520.
       - new dwm, arriving at 11: **one** arrange (Firefox 252x796 left, Telegram 1020x796
         right). Parked: Firefox -2560, Telegram -2304 - same order as on screen.
-- [ ] After the user rebuilds and logs back in: re-run `/tmp/probe_all` on `:0` and confirm
-      the live session shows a single arrange burst too.
+### 6. Follow-up: ff-tg bled onto the other workspaces of that monitor (fixed)
+
+`claimtag`'s sync ran before `view()`, so it still saw workspace 11 in the tagset that
+`view()` was about to replace: leaving 11 for workspace 8 left the monitor on ff-tg and
+cut firefox windows to the 20% column. `viewtag` now syncs the destination monitor with
+the view `view()` installs.
+
+### 7. Follow-up: ghost column when a special is open on 11 (fixed)
+
+`telegram()` counted the floating overlay as a tiled client and reserved a column for a
+window the layout never places. Floating clients are skipped now.
+
+Rig A/B for both (`/tmp/rig_test3.sh`), old build vs new:
+
+| | committed build | fixed build |
+|---|---|---|
+| workspace 8, firefox alone | 256 wide (ff-tg column) | 1280 wide (tile) |
+| 11 with a floating client | telegram 628 + dead 388 column | telegram 1020, no reserved column |
+
+### 8. Still open
+
+- [ ] After the user rebuilds and logs back in with the fix: re-run `/tmp/probe_all` on `:0`
+      and confirm the live burst is a single arrange and workspaces 9 / 12 tile normally.
