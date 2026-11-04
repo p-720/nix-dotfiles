@@ -4,6 +4,9 @@ with lib;
 let
   cfg = config.modules.dwm;
 
+  # nixpkgs picom has none of the animation/transparency options configs/picom relies on
+  picomPijulius = pkgs.unstable.picom-pijulius;
+
   dwm = pkgs.dwm.override {
     conf = /etc/nixos/configs/dwm/config.h;
     patches = [
@@ -72,6 +75,12 @@ in {
           ${pkgs.feh}/bin/feh --bg-fill --geometry +0+0 /etc/nixos/light.jpg /etc/nixos/light.jpg /etc/nixos/light.jpg
         fi
         (rm -f ~/.cache/status-notifier-item/*.json; status-notifier-watcher) &
+        # dwm composites nothing itself; without picom there are no shadows, rounded
+        # corners or transparency. Loop so a crash comes back while the X session lives;
+        # the pgrep guard keeps us from stacking a second compositor if something else
+        # (a manual picom, or an xdg autostart entry) won the race - picom refuses a
+        # second CM registration and would otherwise retry every 2s forever.
+        (while xset q >/dev/null 2>&1; do ${pkgs.procps}/bin/pgrep -x picom >/dev/null || ${picomPijulius}/bin/picom; sleep 2; done) &
         # dyre recompiles taffybar.hs on change and shells out to ghc; that
         # env's bin must precede PATH but must not leak into the rest of the
         # session (it also ships a taffybar of its own)
@@ -84,7 +93,7 @@ in {
       feh
       gammastep
       i3lock
-      picom
+      picomPijulius
     ];
   };
 }
