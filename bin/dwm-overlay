@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# dwm-overlay — start an app as a dwm special overlay and mark the exact window it created.
+# dwm only makes a window an overlay when it carries _DWM_SPECIAL_TAG, so a window you
+# opened yourself can never be swallowed by an overlay spawn.
+#
+# usage: dwm-overlay <tag> <wm-class> [-F] -- <command...>
+#   <tag>       dwm tag index the window belongs to (12 = alacritty .. 20 = emacs)
+#   <wm-class>  res_class the spawned app reports, used to spot the new window
+#   -F          ask the client to fake-fullscreen: chromeless PWA look, dwm keeps geometry
+set -u
+
+tag="${1:-}"
+cls="${2:-}"
+shift 2 || true
+fullscreen=0
+if [[ "${1:-}" == "-F" ]]; then
+	fullscreen=1
+	shift
+fi
+if [[ "${1:-}" == "--" ]]; then
+	shift
+fi
+if [[ -z "$tag" || -z "$cls" || $# -eq 0 ]]; then
+	echo "usage: dwm-overlay <tag> <wm-class> [-F] -- <command...>" >&2
+	exit 2
+fi
+
+# Snapshot first: several overlays share the "firefox" class, so the new window is
+# found by diffing the list rather than by searching for a class.
+before="$(xdotool search --class "$cls" 2>/dev/null | sort || true)"
+setsid "$@" >/dev/null 2>&1 &
+
+for _ in $(seq 1 150); do # 15s: --new-window into a running firefox is the slow case
+	after="$(xdotool search --onlyvisible --class "$cls" 2>/dev/null | sort || true)"
+	win=""
+	bestarea=0
+	for id in $(comm -13 <(printf '%s\n' "$before") <(printf '%s\n' "$after")); do
+		WIDTH=0
+		HEIGHT=0
+		eval "$(xdotool getwindowgeometry --shell "$id" 2>/dev/null)" || continue
+		# apps map 1x1 helpers and small transients; the overlay is the big one
+		area=$(( ${WIDTH:-0} * ${HEIGHT:-0} ))
+		if (( area > 200000 && area > bestarea )); then
+			bestarea=$area
+			win=$id
+		fi
+	done
+	if [[ -n "$win" ]]; then
+		sleep 0.5 # let dwm finish managing it before its tags are rewritten
+		xprop -id "$win" -f _DWM_SPECIAL_TAG 32c -set _DWM_SPECIAL_TAG "$tag" 2>/dev/null || true
+		if (( fullscreen )); then
+			for _ in $(seq 1 20); do
+				xprop -id "$win" -f _NET_WM_STATE 32a -set _NET_WM_STATE _NET_WM_STATE_FULLSCREEN 2>/dev/null || true
+				state="$(xprop -id "$win" _NET_WM_STATE 2>/dev/null)"
+				if [[ "$state" == *_NET_WM_STATE_FULLSCREEN* ]]; then
+					exit 0
+				fi
+				sleep 0.1
+			done
+			exit 1
+		fi
+		exit 0
+	fi
+	sleep 0.1
+done
+
+echo "dwm-overlay: no new $cls window arrived" >&2
+exit 1

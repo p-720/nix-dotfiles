@@ -1,5 +1,6 @@
 #include <X11/XF86keysym.h>
 #include <limits.h>
+#include <time.h>
 /* See LICENSE file for copyright and license details. */
 
 /* appearance */
@@ -35,7 +36,25 @@ static const char *tags[] = {
 #define SPECIAL_FIRST 12
 #define SPECIAL_GAP 50
 #define SPECIALTAGS  ((((1u << LENGTH(tags)) - 1) ^ ((1u << SPECIAL_FIRST) - 1)))
-static int specialpending = -1;
+/* how long a spawned overlay may take to produce its window */
+#define SPECIAL_SPAWN_GRACE 20
+/* taffybar only ever gets the numbered workspaces: an overlay is reached by keys, and
+   advertising 21 desktops is what made the bar report overlay windows on workspace 1 */
+static const char *ewmhTags[] = {
+	"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12",
+};
+/* One in-flight spawn per overlay tag. Keyed by tag rather than by what is on screen,
+   so hiding the overlay or switching workspace while the app starts still lands the
+   window on its overlay, and a press while a spawn is in flight never forks a second copy. */
+typedef struct {
+	int tag;                 /* SPECIAL_FIRST..LENGTH(tags)-1, 0 = slot free */
+	const char *cls;         /* res_class we expect the spawned app to report */
+	Window guess;            /* window already claimed for this spawn, 0 = none yet */
+	unsigned int guess_tags; /* what to give that window back if the mark disagrees */
+	int monnum;              /* monitor the press came from, so the window lands there */
+	time_t deadline;
+} SpecialSpawn;
+static SpecialSpawn pendingspecial[LENGTH(tags) - SPECIAL_FIRST];
 /* tags 1-6 start on monitor 0, 7-12 on monitor 1; movetag updates this */
 static int tagowner[LENGTH(tags)] = {
 	0, 0, 0, 0, 0, 0,
@@ -280,21 +299,33 @@ warppointer(Client *c)
 	XFlush(dpy);
 }
 
-/* hyprland special apps; tags 13-21 are hidden scratch tags */
-static const char *special_alacritty[] = { "alacritty", NULL };
-static const char *special_openai[] = { "firefox-pwa", "https://chatgpt.com/", NULL };
-static const char *special_deepseek[] = { "firefox-pwa", "https://chat.deepseek.com/", NULL };
-static const char *special_grok[] = { "firefox-pwa", "https://grok.com/", NULL };
-static const char *special_otherai[] = { "firefox-pwa", "https://claude.ai/", NULL };
-static const char *special_gemini[] = { "firefox", "--new-window", "https://gemini.google.com", NULL };
-static const char *special_music[] = { "firefox-pwa", "https://open.spotify.com/", NULL };
-static const char *special_speedcrunch[] = { "speedcrunch", NULL };
-static const char *special_emacs[] = { "emacs", NULL };
+/* hyprland special apps; tags 13-21 are hidden scratch tags.
+   Every spawn goes through dwm-overlay(1), which finds the exact window the app creates
+   and marks it _DWM_SPECIAL_TAG; -F asks firefox to drop its chrome the way
+   firefox-pwa did (dwm ignores _NET_WM_STATE property writes, so geometry stays ours). */
+static const char *special_alacritty[] =   { "dwm-overlay", "12", "Alacritty", "--", "alacritty", NULL };
+static const char *special_openai[] =      { "dwm-overlay", "13", "firefox", "-F", "--", "firefox", "--new-window", "https://chatgpt.com/", NULL };
+static const char *special_deepseek[] =    { "dwm-overlay", "14", "firefox", "-F", "--", "firefox", "--new-window", "https://chat.deepseek.com/", NULL };
+static const char *special_grok[] =        { "dwm-overlay", "15", "firefox", "-F", "--", "firefox", "--new-window", "https://grok.com/", NULL };
+static const char *special_otherai[] =     { "dwm-overlay", "16", "firefox", "-F", "--", "firefox", "--new-window", "https://claude.ai/", NULL };
+static const char *special_gemini[] =      { "dwm-overlay", "17", "firefox", "-F", "--", "firefox", "--new-window", "https://gemini.google.com", NULL };
+static const char *special_music[] =       { "dwm-overlay", "18", "firefox", "-F", "--", "firefox", "--new-window", "https://open.spotify.com/", NULL };
+static const char *special_speedcrunch[] = { "dwm-overlay", "19", "SpeedCrunch", "--", "speedcrunch", NULL };
+static const char *special_emacs[] =       { "dwm-overlay", "20", "Emacs", "--", "emacs", NULL };
 static const char **specialcmds[] = {
 	special_alacritty, special_openai, special_deepseek, special_grok,
 	special_otherai, special_gemini, special_music, special_speedcrunch,
 	special_emacs
 };
+/* the res_class each spawn is expected to report, indexed like specialcmds */
+static const char *specialcls[] = {
+	"Alacritty", "firefox", "firefox", "firefox", "firefox",
+	"firefox", "firefox", "SpeedCrunch", "Emacs"
+};
+/* single-purpose apps may be re-shown from a window that is still running but hidden.
+   For the firefox overlays reuse is by overlay tag only - your own browsing windows are
+   never candidates for becoming an overlay. */
+static const int specialreuse[] = { 1, 0, 0, 0, 0, 0, 0, 1, 1 };
 static const char *telegram_ffcmd[] = { "env", "DWM_NO_SPECIAL_TAG=1", "firefox-pwa", "https://ug.kyrgyzstan.kg/pomotask/", NULL };
 static const char *telegram_tgcmd[] = {
 	"sh", "-c", "env GDK_BACKEND=x11 QT_QPA_PLATFORM=xcb WEBKIT_DISABLE_DMABUF_RENDERER=1 Telegram", NULL
@@ -329,10 +360,6 @@ viewtag(const Arg *arg)
 {
 	Monitor *m = tagmonitor(arg->ui), *prev = selmon;
 
-	if (!(arg->ui & ~((1u << SPECIAL_FIRST) - 1))) {
-		XDeleteProperty(dpy, root, XInternAtom(dpy, "_DWM_SPECIAL_TARGET", False));
-		specialpending = -1;
-	}
 	if (m != selmon) {
 		unfocus(selmon->sel, 0);
 		selmon = m;
@@ -379,100 +406,311 @@ centerspecial(Client *c, Monitor *m)
 	XRaiseWindow(dpy, c->win);
 }
 
+static SpecialSpawn *
+pendinglookup(int tag)
+{
+	int i;
+
+	for (i = 0; i < (int)LENGTH(pendingspecial); i++)
+		if (pendingspecial[i].tag == tag && time(NULL) < pendingspecial[i].deadline)
+			return &pendingspecial[i];
+	return NULL;
+}
+
+static void
+pendingstart(int tag, const char *cls, Monitor *m)
+{
+	int i;
+
+	for (i = 0; i < (int)LENGTH(pendingspecial); i++)
+		if (!pendingspecial[i].tag || time(NULL) >= pendingspecial[i].deadline)
+			break;
+	pendingspecial[i].tag = tag;
+	pendingspecial[i].cls = cls;
+	pendingspecial[i].guess = 0;
+	pendingspecial[i].guess_tags = 0;
+	pendingspecial[i].monnum = m ? m->num : -1;
+	pendingspecial[i].deadline = time(NULL) + SPECIAL_SPAWN_GRACE;
+}
+
+static void
+pendingclear(SpecialSpawn *p)
+{
+	p->tag = 0;
+	p->cls = NULL;
+	p->guess = 0;
+	p->guess_tags = 0;
+	p->monnum = -1;
+	p->deadline = 0;
+}
+
+static int
+clientclassis(Client *c, const char *cls)
+{
+	XClassHint ch;
+	int hit;
+
+	ch.res_class = ch.res_name = NULL;
+	if (!XGetClassHint(dpy, c->win, &ch) || !ch.res_class) {
+		if (ch.res_class)
+			XFree(ch.res_class);
+		if (ch.res_name)
+			XFree(ch.res_name);
+		return 0;
+	}
+	hit = !strcmp(ch.res_class, cls);
+	XFree(ch.res_class);
+	if (ch.res_name)
+		XFree(ch.res_name);
+	return hit;
+}
+
+/* the window tagged for this overlay. onscreen = 1 only matches one you can actually
+   see, which is what decides press-against-press: an armed tag with no window is not
+   an open overlay. */
+static Client *
+overlayclient(unsigned int mask, Monitor **mon, int onscreen)
+{
+	Monitor *m;
+	Client *c;
+
+	for (m = mons; m; m = m->next) {
+		for (c = m->clients; c; c = c->next) {
+			if (!(c->tags & mask))
+				continue;
+			if (onscreen && !(c->tags & m->tagset[m->seltags]))
+				continue;
+			if (mon)
+				*mon = m;
+			return c;
+		}
+	}
+	return NULL;
+}
+
+static Monitor *
+taggedmonitor(unsigned int mask)
+{
+	Monitor *m;
+
+	for (m = mons; m; m = m->next)
+		if (m->tagset[m->seltags] & mask)
+			return m;
+	return NULL;
+}
+
+/* reuse candidates for the single-purpose overlays: running but on nobody's screen.
+   Never grabs a window you are looking at, never grabs another overlay. */
+static Client *
+strandedclient(const char *cls)
+{
+	Monitor *m;
+	Client *c;
+
+	for (m = mons; m; m = m->next)
+		for (c = m->clients; c; c = c->next) {
+			if (c->tags & SPECIALTAGS)
+				continue;
+			if (c->tags & m->tagset[m->seltags])
+				continue;
+			if (clientclassis(c, cls))
+				return c;
+		}
+	return NULL;
+}
+
+/* called from manage() before the client is attached: only a window belonging to a
+   spawn we started may join an overlay. Everything else loses the overlay tags it
+   inherited from the monitor view, so opening your own firefox while an overlay tag is
+   showing cannot turn it into an overlay. */
+static void
+overlayclaim(Client *c, XWindowAttributes *wa)
+{
+	SpecialSpawn *p;
+	Monitor *m;
+	int i;
+
+	p = NULL;
+	if (wa->width > 100 && wa->height > 100) {
+		for (i = 0; i < (int)LENGTH(pendingspecial); i++) {
+			if (!pendingspecial[i].tag || pendingspecial[i].guess
+			 || time(NULL) >= pendingspecial[i].deadline)
+				continue;
+			if (!clientclassis(c, pendingspecial[i].cls))
+				continue;
+			p = &pendingspecial[i];
+			break;
+		}
+	}
+	if (!p) {
+		c->tags &= ~SPECIALTAGS;
+		return;
+	}
+	p->guess = c->win;
+	p->guess_tags = c->mon->tagset[c->mon->seltags] & ~SPECIALTAGS;
+	/* land on the monitor the press came from, not whichever one happens to be focused
+	   when the app finally maps its window */
+	m = monitorbyindex(p->monnum);
+	c->mon = m ? m : selmon;
+	c->tags = 1u << p->tag;
+	c->isfloating = 1;
+}
+
+/* the wrapper marks the exact window it started. Honoured whenever that marker
+   arrives - after a toggle-off, a workspace switch, or a slow app - and it overrules
+   the class guess in overlayclaim, handing the wrongly claimed window back its
+   workspace. Geometry stays with configure()/centerspecial(): resizing here is what
+   made firefox fight dwm for the window size. */
+static void
+overlaymark(Client *c)
+{
+	SpecialSpawn *p;
+	Atom real, atom = XInternAtom(dpy, "_DWM_SPECIAL_TAG", False);
+	unsigned char *data = NULL;
+	unsigned long n, extra;
+	Client *wrong;
+	int format, val;
+
+	if (XGetWindowProperty(dpy, c->win, atom, 0, 1, False, XA_CARDINAL, &real,
+		&format, &n, &extra, &data) != Success || !n) {
+		XFree(data);
+		return;
+	}
+	val = (int)*(long *)data;
+	XFree(data);
+	if (real != XA_CARDINAL || format != 32 || val < SPECIAL_FIRST || val >= LENGTH(tags))
+		return;
+
+	p = pendinglookup(val);
+	if (p && p->guess && p->guess != c->win && (wrong = wintoclient(p->guess))) {
+		wrong->tags = p->guess_tags ? p->guess_tags
+			: (wrong->mon->tagset[wrong->mon->seltags] & ~SPECIALTAGS);
+		if (!wrong->tags)
+			wrong->tags = 1u << (SPECIAL_FIRST - 1);
+		wrong->isfloating = 0;
+		arrange(wrong->mon);
+	}
+	if (p)
+		pendingclear(p);
+
+	c->tags = 1u << val;
+	c->isfloating = 1;
+	centerspecial(c, c->mon);
+	arrange(c->mon);
+	updateclientlist();
+}
+
+/* an overlay tag with no window left on this monitor is dead state: drop it so the
+   next press is a clean open instead of a hide that hides nothing. */
+static void
+overlaycleanup(Monitor *m)
+{
+	int idx;
+
+	if (!m)
+		return;
+	for (idx = SPECIAL_FIRST; idx < LENGTH(tags); idx++) {
+		if (!(m->tagset[m->seltags] & (1u << idx)))
+			continue;
+		if (overlayclient(1u << idx, NULL, 0))
+			continue;
+		m->tagset[m->seltags] &= ~(1u << idx);
+	}
+	if (!m->tagset[m->seltags])
+		m->tagset[m->seltags] = hometag(m);
+}
+
 static void
 togglespecial(const Arg *arg)
 {
-	Monitor *m = selmon, *mm, *owner = NULL;
-	Client *c, *next, *shown = NULL;
+	Monitor *m, *mm, *own = NULL;
+	Client *c, *shown;
 	unsigned int mask;
-	Arg a;
-	int idx = arg->i, found = 0;
+	int idx = arg->i, pos;
 
-	if (!m || idx < SPECIAL_FIRST || idx >= LENGTH(tags))
+	if (!selmon || idx < SPECIAL_FIRST || idx >= LENGTH(tags))
 		return;
 	mask = 1u << idx;
-	a.ui = mask;
-	XDeleteProperty(dpy, root, XInternAtom(dpy, "_DWM_SPECIAL_TARGET", False));
+	pos = idx - SPECIAL_FIRST;
 
-	/* one overlay at a time; detect it on any monitor */
-	for (mm = mons; mm; mm = mm->next)
-		if (mm->tagset[mm->seltags] & mask) {
-			owner = mm;
-			break;
+	/* shown anywhere -> hide it there. A press must always be able to close the
+	   overlay; bringing it to you only applies when nothing is showing. */
+	if ((c = overlayclient(mask, &own, 1))) {
+		/* strip any workspace tag the overlay picked up (a sendmon from movedir, a
+		   tagto, ...) or hiding the overlay tag leaves the window on screen */
+		for (c = own->clients; c; c = c->next)
+			if (c->tags & mask)
+				c->tags = mask;
+		own->tagset[own->seltags] &= ~mask;
+		if (!own->tagset[own->seltags])
+			own->tagset[own->seltags] = hometag(own);
+		if (own != selmon) {
+			unfocus(selmon->sel, 0);
+			selmon = own;
 		}
-
-	if (!owner) {
-		for (mm = mons; mm; mm = mm->next)
-			for (c = mm->clients; c; c = c->next)
-				if (c->tags & mask) {
-					found = 1;
-					break;
-				}
-	} else {
-		found = 1;
+		arrange(own);
+		focus(NULL);
+		updatecurrentdesktop();
+		updateclientlist();
+		return;
 	}
 
-	/* remove the overlay from every other monitor */
+	/* armed on this monitor but the app has not arrived yet: a press means "not now",
+	   and the spawn stays alive so the window still lands on this overlay, parked.
+	   When the arm is on the other monitor this falls through and re-arms here. */
+	if (!overlayclient(mask, &own, 0) && pendinglookup(idx)
+	 && (m = taggedmonitor(mask)) == selmon) {
+		m->tagset[m->seltags] &= ~mask;
+		if (!m->tagset[m->seltags])
+			m->tagset[m->seltags] = hometag(m);
+		arrange(m);
+		updatecurrentdesktop();
+		updateclientlist();
+		return;
+	}
+
+	/* show it here: reuse the window already tagged for this overlay wherever it
+	   lives (it moves to this monitor), or a still-running window of that app's class
+	   when nothing is tagged */
+	shown = overlayclient(mask, NULL, 0);
+	if (!shown && specialreuse[pos])
+		shown = strandedclient(specialcls[pos]);
+	m = selmon;
+
+	/* drop the overlay from any other monitor before putting it on this one */
 	for (mm = mons; mm; mm = mm->next) {
 		if (mm == m || !(mm->tagset[mm->seltags] & mask))
 			continue;
 		mm->tagset[mm->seltags] &= ~mask;
 		if (!mm->tagset[mm->seltags])
-			mm->tagset[mm->seltags] = 1u;
+			mm->tagset[mm->seltags] = hometag(mm);
 		arrange(mm);
 	}
-
-	/* toggling the overlay on its current monitor hides it */
-	if (owner == m) {
-		m->tagset[m->seltags] &= ~mask;
-		if (!m->tagset[m->seltags])
-			m->tagset[m->seltags] = 1u;
-		arrange(m);
-		focus(NULL);
-		updatecurrentdesktop();
-		return;
-	}
-
+	/* one overlay per monitor */
 	tagowner[idx] = m->num;
-	/* one overlay per monitor: drop the other special tags before adding this one */
 	m->tagset[m->seltags] &= ~SPECIALTAGS;
 	m->tagset[m->seltags] |= mask;
-
-	/* reuse the same client(s) on whichever monitor they were */
-	for (mm = mons; mm; mm = mm->next)
-		for (c = mm->clients; c; c = next) {
-			next = c->next;
-			if (!(c->tags & mask))
-				continue;
-			if (c->mon != m)
-				sendmon(c, m);
-			c->tags = mask;
-			centerspecial(c, m);
-			shown = c;
-		}
+	if (shown && shown->mon != m)
+		sendmon(shown, m);
+	/* sendmon assigns the target monitor's whole tagset, which would leave the overlay
+	   tagged to the numbered workspace too - then hiding the overlay tag leaves the
+	   window on screen looking like a normal window */
+	if (shown)
+		shown->tags = mask;
 
 	arrange(m);
-	if (shown)
+	if (shown) {
 		centerspecial(shown, m);
+		focus(shown);
+	} else {
+		focus(NULL);
+		if (!pendinglookup(idx)) {
+			pendingstart(idx, specialcls[pos], m);
+			spawn(&(Arg){ .v = specialcmds[pos] });
+		}
+	}
 	updatecurrentdesktop();
 	updateclientlist();
-	if (shown) {
-		focus(shown);
-		centerspecial(shown, m);
-	} else
-		focus(NULL);
-
-	if (found)
-		return;
-	specialpending = -1;
-	if (strcmp(specialcmds[idx - SPECIAL_FIRST][0], "firefox-pwa") == 0) {
-		long target = idx;
-		XChangeProperty(dpy, root, XInternAtom(dpy, "_DWM_SPECIAL_TARGET", False),
-			XA_CARDINAL, 32, PropModeReplace, (unsigned char *)&target, 1);
-	} else {
-		specialpending = idx;
-	}
-	spawn(&(Arg){ .v = specialcmds[idx - SPECIAL_FIRST] });
 }
 
 /* move the focused window to the target tag and follow it */

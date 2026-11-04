@@ -6,6 +6,18 @@ Test windows must never hit the live display `:0` — they appear as tiled
 windows in the user's real dwm. Use a headless Xvfb on `:2` (no visible
 window at all):
 
+No nested servers either: Xephyr/Xnest need a host X server, so their window
+lands on the user's live desktop.
+
+Apps that reuse a running instance cross displays. `firefox --new-window` hands
+the request to the instance already on `:0`, so the window opens in the user's
+dwm even when launched with `DISPLAY=:2`. Shim the spawn instead: put
+`/tmp/rigbin/firefox` containing
+`exec /run/current-system/sw/bin/firefox --profile /tmp/ffrig "$@"` ahead of
+the rig dwm's PATH (`PATH=/tmp/rigbin:/etc/nixos/bin:$PATH`; `/etc/nixos/bin`
+must be there or `dwm-overlay` never spawns). Firefox maps no window at all
+under Xvfb, so the six firefox overlays are only testable on the real session.
+
 ```sh
 rm -f /tmp/.X2-lock /tmp/xauth_v2
 xauth -f /tmp/xauth_v2 generate :2 MIT-MAGIC-COOKIE-1 2>/dev/null
@@ -21,8 +33,13 @@ sleep 10
 
 Inspect by window attributes, not pixels:
 
-- clients: `xprop -root _NET_CLIENT_LIST`
-- per window: `xwininfo -id <win>` → `Width`, `Border width`, `Map State`, `Absolute upper-left X`
+- clients: `xprop -root _NET_CLIENT_LIST` (overlay windows are excluded from it
+  on purpose, so their absence is the check, not a bug)
+- per window: `xdotool getwindowgeometry --shell <win>` → `X`, `Y`, `WIDTH`,
+  `HEIGHT`, `SCREEN` (`xwininfo` is not installed on this system)
+- per window state: `xprop -id <win> _NET_WM_STATE _DWM_SPECIAL_TAG WM_CLASS`
+- pid of a test window: `xdotool getwindowpid <win>` (wrapped binaries report a
+  truncated `comm`, e.g. `.speedcrunch-wr`, so `pgrep -x speedcrunch` misses them)
 - keys: `xdotool key super+c` (overlay tag 19). Prefer MODKEY bindings;
   xdotool's F-key remapping is flaky on fresh servers.
 
@@ -75,3 +92,5 @@ A new dwm binary takes effect at the user's next login; say so.
   (e.g. `tr -d0 \</proc/PID/environ` contains `DISPLAY=:2`), and kill only
   those.
 - Xvfb `-screen` takes the screen number first: `-screen 0 1280x800x24`.
+- Xvfb's own environ has no `DISPLAY`, so the environ check misses it: kill the
+  rig Xvfb by the PID you recorded when starting it.
