@@ -1,0 +1,187 @@
+{
+    "providers": {
+        "opencode": {
+            "models":[
+                {
+                    "id": "deepseek-v4-flash-free",
+                    "contextWindow": 1048576
+                }
+            ]
+        },
+        "opencode-go":{
+
+            "models":[
+                {
+                    "id": "gpt-5.6-luna",
+                    "contextWindow": 1048576
+                }
+            ]
+        },
+        "openrouter": {
+            "models": [
+                {
+                    "id": "deepseek/deepseek-v4-flash-0731",
+                    "contextWindow": 1048576,
+                    "maxTokens": 65536
+                },
+                {
+                    "id": "nvidia/nemotron-3.5-super-vl:free",
+                    "name": "NVIDIA: Nemotron 3.5 Super VL (free)",
+                    "reasoning": true,
+                    "input": ["text", "image"],
+                    "contextWindow": 1000000,
+                    "maxTokens": 131072,
+                    "cost": {
+                        "input": 0,
+                        "output": 0,
+                        "cacheRead": 0,
+                        "cacheWrite": 0
+                    },
+                    "compat": {
+                        "supportsDeveloperRole": false,
+                        "thinkingFormat": "openrouter",
+                        "supportsStrictMode": true,
+                        "sendSessionAffinityHeaders": true
+                    },
+                    "inputLimits": {
+                        "images": {
+                            "resize": {
+                                "maxWidth": 2000,
+                                "maxHeight": 2000,
+                                "maxBytes": 4718592,
+                                "jpegQuality": 80
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "antigravity-manager": {
+            "baseUrl": "http://127.0.0.1:8045/v1",
+            "apiKey": "sk-94e046219d02457486e1910271961a17",
+            "api": "openai-completions",
+            "authHeader": true,
+            "models": [
+                {
+                    "id": "gemini-3-flash",
+                    "name": "Gemini 3 Flash",
+                    "reasoning": true,
+                    "input": ["text", "image"],
+                    "contextWindow": 1048576,
+                    "maxTokens": 65536
+                },
+                {
+                    "id": "claude-opus-4-6-thinking",
+                    "name": "Claude Opus 4.6",
+                    "reasoning": true,
+                    "input": ["text", "image"],
+                    "contextWindow": 1048576,
+                    "maxTokens": 65536
+                },
+                {
+                    "id": "claude-sonnet-4-6",
+                    "name": "Claude Sonnet 4.6",
+                    "reasoning": true,
+                    "input": ["text", "image"],
+                    "contextWindow": 1048576,
+                    "maxTokens": 65536
+                },
+                {
+                    "id": "gemini-3.1-pro-high",
+                    "name": "Gemini 3.1 Pro High",
+                    "reasoning": true,
+                    "input": ["text", "image"],
+                    "contextWindow": 1048576,
+                    "maxTokens": 65535
+                }
+            ]
+        },
+        "qwen38-huge": {
+            "baseUrl": "http://127.0.0.1:18020/v1",
+            "apiKey": "d66d0857cd417e146448659f477a0ef6f369adf08d964cdd",
+            "api": "openai-completions",
+            "authHeader": true,
+            "compat": {
+                "supportsDeveloperRole": false,
+                "thinkingFormat": "qwen-chat-template"
+            },
+            "models": [
+                {
+                    "id": "qwen3.8-27b",
+                    "name": "Qwen 3.8 27B (MCTX=large)",
+                    "reasoning": true,
+                    "input": ["text", "image"],
+                    "contextWindow": 115000,
+                    "thinkingLevelMap": {
+                        "xhigh": "xhigh"
+                    },
+                    "maxTokens": 32768
+                }
+            ]
+        },
+        "qwen38-next": {
+            "baseUrl": "http://127.0.0.1:47831/v1",
+            "apiKey": "d66d0857cd417e146448659f477a0ef6f369adf08d964cdd",
+            "api": "openai-completions",
+            "authHeader": true,
+            "compat": {
+                "supportsDeveloperRole": false,
+                "thinkingFormat": "qwen-chat-template"
+            },
+            "models": [
+                {
+                    "id": "iq3_xxs",
+                    "name": "Qwen 3.8 Next 120b IQ_3xxs",
+                    "reasoning": true,
+                    "input": ["text", "image" ],
+                    "contextWindow": 256000,
+                    "maxTokens": 32768
+                }
+            ]
+        },
+
+        "qwen38-fast": {
+            "baseUrl": "http://127.0.0.1:18020/v1",
+            "apiKey": "d66d0857cd417e146448659f477a0ef6f369adf08d964cdd",
+            "api": "openai-completions",
+            "authHeader": true,
+            "compat": {
+                "supportsDeveloperRole": false,
+                "thinkingFormat": "qwen-chat-template"
+            },
+            "models": [
+                {
+                    "id": "qwen3.8-27b",
+                    "name": "Qwen 3.8 27B (CTX=fast)",
+                    "reasoning": true,
+                    "input": ["text" ],
+                    "contextWindow": 56000,
+                    "thinkingLevelMap": {
+                        "xhigh": "xhigh"
+                    },
+                    "maxTokens": 65536
+                }
+            ]
+        },
+
+        "qwen3.6-local": {
+            "baseUrl": "http://127.0.0.1:8060/v1",
+            "apiKey": "ignored",
+            "api": "openai-completions",
+            "authHeader": true,
+            "compat": {
+                "supportsDeveloperRole": false
+            },
+            "models": [
+                {
+                    "id": "qwen3.6-27b-autoround",
+                    "name": "Qwen 3.6 27B (Local)",
+                    "reasoning": true,
+                    "input": ["text", "image"],
+                    "contextWindow": 200000,
+                    "maxTokens": 55000
+                }
+            ]
+        }
+    }
+}
