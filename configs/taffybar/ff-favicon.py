@@ -16,9 +16,19 @@ import subprocess
 import sys
 import tempfile
 
-PROFILES_INI = os.path.expanduser("~/.mozilla/firefox/profiles.ini")
-FF_ROOT = os.path.expanduser("~/.mozilla/firefox")
 CACHE_DIR = os.path.expanduser("~/.cache/taffybar/favicons")
+
+# Firefox moved its profile tree under XDG ($XDG_CONFIG_HOME/mozilla/firefox) on
+# newer builds; older builds keep the classic ~/.mozilla/firefox. The bar runs
+# against both, so probe both instead of guessing per host.
+FF_ROOTS = [
+    os.path.join(
+        os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"),
+        "mozilla",
+        "firefox",
+    ),
+    os.path.expanduser("~/.mozilla/firefox"),
+]
 
 PLACES_EXACT = """
 select url, coalesce(last_visit_date, 0) from moz_places
@@ -73,33 +83,39 @@ def normalize_title(title):
 
 
 def profile_dirs():
-    """Every profile that has a places db, default profile first."""
+    """Every profile that has a places db, across all known roots, default first."""
     dirs = []
-    try:
-        with open(PROFILES_INI, "r", encoding="utf-8", errors="replace") as fh:
-            name = None
-            path = None
-            for line in fh:
-                line = line.strip()
-                if line.startswith("Name="):
-                    name = line.split("=", 1)[1]
-                elif line.startswith("Path="):
-                    path = line.split("=", 1)[1]
-                elif not line and path:
-                    full = path if os.path.isabs(path) else os.path.join(FF_ROOT, path)
+    for root in FF_ROOTS:
+        try:
+            with open(os.path.join(root, "profiles.ini"), "r", encoding="utf-8", errors="replace") as fh:
+                name = None
+                path = None
+                for line in fh:
+                    line = line.strip()
+                    if line.startswith("Name="):
+                        name = line.split("=", 1)[1]
+                    elif line.startswith("Path="):
+                        path = line.split("=", 1)[1]
+                    elif not line and path:
+                        full = path if os.path.isabs(path) else os.path.join(root, path)
+                        dirs.append((name or "", full))
+                        name = path = None
+                if path:
+                    full = path if os.path.isabs(path) else os.path.join(root, path)
                     dirs.append((name or "", full))
-                    name = path = None
-            if path:
-                full = path if os.path.isabs(path) else os.path.join(FF_ROOT, path)
-                dirs.append((name or "", full))
-    except OSError:
-        pass
+        except OSError:
+            pass
 
-    known = {d for _, d in dirs}
-    for entry in sorted(os.listdir(FF_ROOT)) if os.path.isdir(FF_ROOT) else []:
-        full = os.path.join(FF_ROOT, entry)
-        if full not in known and os.path.exists(os.path.join(full, "places.sqlite")):
-            dirs.append((entry, full))
+        # profiles.ini can list a profile that was deleted, and a profile can be
+        # present on disk without being listed (locally-built profiles.ini)
+        known = {d for _, d in dirs}
+        for entry in sorted(os.listdir(root)) if os.path.isdir(root) else []:
+            full = os.path.join(root, entry)
+            if full not in known and os.path.exists(os.path.join(full, "places.sqlite")):
+                dirs.append((entry, full))
+
+    # the two roots can name the same profile when ~/.mozilla is a symlink
+    dirs = list(dict.fromkeys(dirs))
 
     def is_default(item):
         name, path = item

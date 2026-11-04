@@ -181,38 +181,89 @@ tagmonitor(unsigned int mask)
 	return m ? m : selmon;
 }
 
+/* a monitor is never left showing nothing; fall back to the first workspace it owns */
+static unsigned int
+hometag(Monitor *m)
+{
+	int i;
+
+	for (i = 0; i < SPECIAL_FIRST; i++)
+		if (tagowner[i] == m->num)
+			return 1u << i;
+	return 1u;
+}
+
+/* dwm keeps a tagset per monitor, so the same tag can be displayed by both.
+   sendmon then retags a moved window to the other monitor's view; when that
+   monitor later switches away, the window is tagged for a workspace nobody
+   displays and dwm 6.6 parks it off-screen instead of unmapping it. Take the
+   tag for one monitor and drag its windows along. */
+static void
+claimtag(Monitor *m, unsigned int mask)
+{
+	Monitor *mm;
+	Client *c, *next;
+	int i;
+
+	if (!m || !mask)
+		return;
+	for (mm = mons; mm; mm = mm->next) {
+		if (mm == m)
+			continue;
+		mm->tagset[mm->seltags] &= ~mask;
+		if (!mm->tagset[mm->seltags])
+			mm->tagset[mm->seltags] = hometag(mm);
+	}
+	m->tagset[m->seltags] |= mask;
+	for (mm = mons; mm; mm = mm->next) {
+		if (mm == m)
+			continue;
+		for (c = mm->clients; c; c = next) {
+			next = c->next;
+			if (!(c->tags & mask))
+				continue;
+			sendmon(c, m);
+			/* sendmon widens the tags to the whole destination view */
+			c->tags = mask;
+		}
+	}
+	for (i = 0; i < LENGTH(tags); i++)
+		if (mask & (1u << i))
+			tagowner[i] = m->num;
+}
+
+/* dwm starts every monitor on workspace 1; that shared tag is where cross
+   monitor moves strand windows */
+static void
+initmonitors(void)
+{
+	Monitor *m;
+
+	for (m = mons; m; m = m->next)
+		m->tagset[0] = m->tagset[1] = hometag(m);
+}
+
 /* hyprland ALT+SUPER+1/0/2/9/minus: move workspace to monitor */
 static void
 movetag(const Arg *arg)
 {
 	Monitor *m = monitorbyindex(arg->i);
 	unsigned int tag;
-	Client *c, *next;
 	int idx = -1, i;
 
 	if (!m || m == selmon)
 		return;
-	tag = selmon->tagset[selmon->seltags];
-	for (i = 0; i < LENGTH(tags); i++)
-		if (tag & (1 << i)) {
+	/* only the numbered workspace travels; overlays stay on the monitor that opened them */
+	tag = selmon->tagset[selmon->seltags] & ((1u << SPECIAL_FIRST) - 1);
+	for (i = 0; i < SPECIAL_FIRST; i++)
+		if (tag & (1u << i)) {
 			idx = i;
 			break;
 		}
 	if (idx < 0)
 		return;
 
-	tagowner[idx] = arg->i;
-	m->seltags ^= 1;
-	m->tagset[m->seltags] = tag;
-
-	for (c = selmon->clients; c; c = next) {
-		next = c->next;
-		if (!(c->tags & tag))
-			continue;
-		sendmon(c, m);
-		c->tags = tag;
-	}
-
+	claimtag(m, tag);
 	selmon = m;
 	focus(NULL);
 	updatecurrentdesktop();
@@ -288,6 +339,7 @@ viewtag(const Arg *arg)
 		focus(NULL);
 	}
 
+	claimtag(m, arg->ui & ((1u << SPECIAL_FIRST) - 1));
 	view(arg);
 	if (!selmon)
 		return;
@@ -437,6 +489,60 @@ tagto(const Arg *arg)
 	c->tags = arg->ui;
 	updateclientlist();
 	viewtag(arg);
+}
+
+/* ctrl+super+N: dwm core toggleview lets two monitors show the same workspace,
+   which is how windows get stranded, so adding N hands the workspace to this
+   monitor and removing it just drops it from this view */
+static void
+toggleviewtag(const Arg *arg)
+{
+	unsigned int mask = arg->ui & ((1u << SPECIAL_FIRST) - 1);
+
+	if (!mask)
+		return;
+	if (selmon->tagset[selmon->seltags] & mask) {
+		selmon->tagset[selmon->seltags] &= ~mask;
+		if (!selmon->tagset[selmon->seltags])
+			selmon->tagset[selmon->seltags] = hometag(selmon);
+	} else {
+		claimtag(selmon, mask);
+	}
+	focus(NULL);
+	arrange(selmon);
+	updatecurrentdesktop();
+	updateclientlist();
+}
+
+/* ctrl+super+shift+N: core toggletag tags a window for a workspace its own
+   monitor will never display, so hand the workspace over and move the window to it */
+static void
+tagclientto(const Arg *arg)
+{
+	Client *c = selmon->sel;
+	Monitor *m;
+	unsigned int mask = arg->ui & ((1u << SPECIAL_FIRST) - 1);
+
+	if (!c || !mask)
+		return;
+	if (c->tags & mask) {
+		c->tags &= ~mask;
+		if (!c->tags)
+			c->tags = selmon->tagset[selmon->seltags];
+		focus(NULL);
+		arrange(selmon);
+		updateclientlist();
+		return;
+	}
+	m = tagmonitor(mask);
+	claimtag(m, mask);
+	if (c->mon != m)
+		sendmon(c, m);
+	c->tags = mask;
+	focus(c);
+	arrange(m);
+	updatecurrentdesktop();
+	updateclientlist();
 }
 
 /* workspace 12: start firefox with max.ru when it is empty */
@@ -679,9 +785,9 @@ movedir(const Arg *arg)
 #define MODKEY Mod4Mask
 #define TAGKEYS(KEY,TAG) \
 	{ MODKEY,                       KEY,      viewtag,        {.ui = 1 << TAG} }, \
-	{ MODKEY|ControlMask,           KEY,      toggleview,     {.ui = 1 << TAG} }, \
+	{ MODKEY|ControlMask,           KEY,      toggleviewtag,  {.ui = 1 << TAG} }, \
 	{ MODKEY|ShiftMask,             KEY,      tagto,          {.ui = 1 << TAG} }, \
-	{ MODKEY|ControlMask|ShiftMask, KEY,      toggletag,      {.ui = 1 << TAG} }
+	{ MODKEY|ControlMask|ShiftMask, KEY,      tagclientto,    {.ui = 1 << TAG} }
 
 /* helper for spawning shell commands */
 #define SHCMD(cmd) { .v = (const char*[]){ "/bin/sh", "-c", cmd, NULL } }
@@ -739,9 +845,9 @@ static const Key keys[] = {
 	TAGKEYS(                        XK_0,                9),
 	TAGKEYS(                        XK_minus,            10),
 	{ MODKEY,                       XK_equal,            viewmax,        {.ui = 1 << 11} },
-	{ MODKEY|ControlMask,           XK_equal,            toggleview,     {.ui = 1 << 11} },
+	{ MODKEY|ControlMask,           XK_equal,            toggleviewtag,  {.ui = 1 << 11} },
 	{ MODKEY|ShiftMask,             XK_equal,            tagto,          {.ui = 1 << 11} },
-	{ MODKEY|ControlMask|ShiftMask, XK_equal,            toggletag,      {.ui = 1 << 11} },
+	{ MODKEY|ControlMask|ShiftMask, XK_equal,            tagclientto,    {.ui = 1 << 11} },
 	/* hyprland special workspaces */
 	{ 0,                            XK_F12,              togglespecial,  {.i = 12} },
 	{ MODKEY,                       XK_g,                togglespecial,  {.i = 13} },
@@ -795,8 +901,8 @@ static const Button buttons[] = {
 	{ ClkClientWin,         MODKEY,     Button1, movemouse,      {0} },
 	{ ClkClientWin,         MODKEY,     Button2, togglefloating, {0} },
 	{ ClkClientWin,         MODKEY,     Button3, resizemouse,    {0} },
-	{ ClkTagBar,            0,          Button1, view,           {0} },
-	{ ClkTagBar,            0,          Button3, toggleview,     {0} },
-	{ ClkTagBar,            MODKEY,     Button1, tag,            {0} },
-	{ ClkTagBar,            MODKEY,     Button3, toggletag,      {0} },
+	{ ClkTagBar,            0,          Button1, viewtag,        {0} },
+	{ ClkTagBar,            0,          Button3, toggleviewtag,  {0} },
+	{ ClkTagBar,            MODKEY,     Button1, tagto,          {0} },
+	{ ClkTagBar,            MODKEY,     Button3, tagclientto,    {0} },
 };

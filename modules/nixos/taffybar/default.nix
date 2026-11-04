@@ -36,7 +36,10 @@ in {
     # not home.packages: home-manager's home-path is not on PATH here
     # status-notifier-item puts status-notifier-watcher on PATH for the
     # xmonad startup hook (taffybar's SNI tray needs a watcher)
-    environment.systemPackages = [ pkgs.taffybar pkgs.haskellPackages.status-notifier-item ];
+    # ff-favicon.py shells out to ImageMagick for svg-only favicons and for the
+    # FF-flame stamp; without it those icons silently fall back to nothing/plain
+    environment.systemPackages =
+      [ pkgs.taffybar pkgs.haskellPackages.status-notifier-item pkgs.imagemagick ];
   } // (my.allUsers ({ config, ... }: {
     # out-of-store links: taffybar recompiles its config while running, and a
     # home.file source copy would freeze it at build time

@@ -1,0 +1,7 @@
+--- a/dwm.c
++++ b/dwm.c
+@@ -1717,3 +1717,4 @@
+ 	bh = usealtbar ? 0 : drw->fonts->h + 2;
+ 	updategeom();
++	initmonitors();
+ 	/* init atoms */

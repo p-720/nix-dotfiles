@@ -51,6 +51,9 @@
 
   time.timeZone = "Europe/Moscow";
 
+  # t3 ships a generic glibc binary; without nix-ld the stub loader refuses it (exit 127)
+  programs.nix-ld.enable = true;
+
   services.gvfs.enable = true;
   services.udev.extraRules = ''
     SUBSYSTEM=="usb", ACTION=="add", ATTR{idVendor}=="0e8d", ATTR{idProduct}=="201d" MODE="0777" GROUP="users"
@@ -291,6 +294,7 @@
       # libsForQt5.breeze-qt5
       pasystray
       my.osu-lazer-bin
+      unstable.opencode
       # my.opencode-baseline
       pavucontrol
       cachix

@@ -13,11 +13,13 @@
     "git:github.com/okiess/pi-opencode-go-provider@fix/context-window-merge",
     "npm:@sting8k/pi-vcc",
     "npm:pi-commandcode-provider",
-    "npm:pi-model-system-prompt"
+    "npm:pi-model-system-prompt",
+    "npm:@agent-sh/computer-use-linux"
   ],
   "hideThinkingBlock": false,
   "theme": "dark",
   "extensions": [
-    "-builtin:mcp"
+    "-builtin:mcp",
+    "!image-context.ts"
   ]
 }
