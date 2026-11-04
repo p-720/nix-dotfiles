@@ -1,0 +1,25 @@
+--- a/dwm.c
++++ b/dwm.c
+@@ -86,4 +86,5 @@
+ struct Client {
+ 	char name[256];
++	char clas[256];
+ 	float mina, maxa;
+ 	int x, y, w, h;
+@@ -1044,4 +1045,16 @@
+ 	c->oldbw = wa->border_width;
+ 
+ 	updatetitle(c);
++	/* WM_CLASS cached here: the class-based layout and the overlay helpers used to call
++	   XGetClassHint from inside arrange(), and every round trip flushes the queued
++	   ConfigureWindow requests, so a layout landed in visible chunks instead of one */
++	{
++		XClassHint ch = { NULL, NULL };
++		if (XGetClassHint(dpy, w, &ch) && ch.res_class) {
++			strncpy(c->clas, ch.res_class, sizeof c->clas - 1);
++			XFree(ch.res_class);
++		}
++		if (ch.res_name)
++			XFree(ch.res_name); /* res_name stays uncached: nothing matched on it */
++	}
+ 	if (XGetTransientForHint(dpy, w, &trans) && (t = wintoclient(trans))) {

@@ -99,28 +99,17 @@ static void
 telegram(Monitor *m)
 {
 	Client *c, *ff = NULL, *tg = NULL, *others[64];
-	XClassHint ch;
 	int n = 0, i, x, w, yy, rh, fw, tw;
 
 	for (c = m->clients; c; c = c->next) {
 		if (!ISVISIBLE(c))
 			continue;
-		ch.res_class = NULL;
-		ch.res_name = NULL;
-		if (XGetClassHint(dpy, c->win, &ch)) {
-			if (!ff && ch.res_class && strstr(ch.res_class, "irefox"))
-				ff = c;
-			else if (!tg && ch.res_class && strstr(ch.res_class, "elegram"))
-				tg = c;
-			else if (n < 64)
-				others[n++] = c;
-			if (ch.res_class)
-				XFree(ch.res_class);
-			if (ch.res_name)
-				XFree(ch.res_name);
-		} else if (n < 64) {
+		if (!ff && strstr(c->clas, "irefox"))
+			ff = c;
+		else if (!tg && strstr(c->clas, "elegram"))
+			tg = c;
+		else if (n < 64)
 			others[n++] = c;
-		}
 	}
 
 	if (!ff && !tg) {
@@ -128,9 +117,13 @@ telegram(Monitor *m)
 		return;
 	}
 
+	/* each column keeps its border allowance and hands it back with -2*bw, the way tile()
+	   does; passing m->wh straight through made the pair taller than the work area.
+	   interact 0 for the same reason as tile(): the flag only picks which bounds the
+	   request is clamped to, and dwm skips size hints for tiled clients anyway. */
 	fw = ff ? (int)(m->ww * 0.20) : 0;
 	if (ff) {
-		resize(ff, m->wx, m->wy, fw, m->wh, 1);
+		resize(ff, m->wx, m->wy, fw - 2 * ff->bw, m->wh - 2 * ff->bw, 0);
 	}
 
 	x = m->wx + fw;
@@ -138,11 +131,11 @@ telegram(Monitor *m)
 	if (tg) {
 		if (n > 0) {
 			tw = (int)(w * 0.618);
-			resize(tg, x, m->wy, tw, m->wh, 1);
+			resize(tg, x, m->wy, tw - 2 * tg->bw, m->wh - 2 * tg->bw, 0);
 			x += tw;
 			w -= tw;
 		} else {
-			resize(tg, x, m->wy, w, m->wh, 1);
+			resize(tg, x, m->wy, w - 2 * tg->bw, m->wh - 2 * tg->bw, 0);
 			w = 0;
 		}
 	}
@@ -150,10 +143,11 @@ telegram(Monitor *m)
 	yy = m->wy;
 	for (i = 0; i < n && w > 0; i++) {
 		rh = (m->wy + m->wh - yy) / (n - i);
-		resize(others[i], x, yy, w, rh, 1);
+		resize(others[i], x, yy, w - 2 * others[i]->bw, rh - 2 * others[i]->bw, 0);
 		yy += rh;
 	}
-	restack(m);
+	/* deliberately no restack(): dwm 6.6 arrange() restacks after the layout returns, and
+	   a second one here redrew the bar and re-stacked the whole monitor on every arrange */
 }
 
 /* layout(s) */
@@ -212,6 +206,19 @@ hometag(Monitor *m)
 	return 1u;
 }
 
+/* ff-tg is class-based, so it may only ever be the layout of a monitor that is showing
+   workspace 11; on leaving, back to tile. */
+static void
+telegramlayout(Monitor *m, unsigned int viewtags)
+{
+	if (!m)
+		return;
+	if (viewtags & (1u << 10))
+		m->lt[m->sellt] = &layouts[3];
+	else if (m->lt[m->sellt] == &layouts[3])
+		m->lt[m->sellt] = &layouts[0];
+}
+
 /* dwm keeps a tagset per monitor, so the same tag can be displayed by both.
    sendmon then retags a moved window to the other monitor's view; when that
    monitor later switches away, the window is tagged for a workspace nobody
@@ -246,6 +253,12 @@ claimtag(Monitor *m, unsigned int mask)
 			c->tags = mask;
 		}
 	}
+	/* the layout has to follow the view before anything arranges it: dwm 6.6 arrange()
+	   runs the layout the monitor already has, so picking it after view() let view()
+	   arrange workspace 11 with tile first - firefox 70% master, telegram 30% slave -
+	   and only then with ff-tg */
+	for (mm = mons; mm; mm = mm->next)
+		telegramlayout(mm, mm->tagset[mm->seltags]);
 	for (i = 0; i < LENGTH(tags); i++)
 		if (mask & (1u << i))
 			tagowner[i] = m->num;
@@ -334,34 +347,29 @@ static const char *telegram_tgcmd[] = {
 	"sh", "-c", "env GDK_BACKEND=x11 QT_QPA_PLATFORM=xcb WEBKIT_DISABLE_DMABUF_RENDERER=1 Telegram", NULL
 };
 
-static int
-hasclass(Monitor *m, unsigned int mask, const char *needle)
+/* one walk answers both halves of the workspace 11 pair; asking twice meant a second
+   pass over every client tagged for it */
+static void
+pairpresent(Monitor *m, unsigned int mask, int *ff, int *tg)
 {
 	Client *c;
-	XClassHint ch;
 
+	*ff = *tg = 0;
 	for (c = m->clients; c; c = c->next) {
 		if (!(c->tags & mask))
 			continue;
-		ch.res_class = ch.res_name = NULL;
-		if (XGetClassHint(dpy, c->win, &ch)) {
-			int found = (ch.res_class && strstr(ch.res_class, needle))
-				|| (ch.res_name && strstr(ch.res_name, needle));
-			if (ch.res_class)
-				XFree(ch.res_class);
-			if (ch.res_name)
-				XFree(ch.res_name);
-			if (found)
-				return 1;
-		}
+		if (!*ff && strstr(c->clas, "irefox"))
+			*ff = 1;
+		else if (!*tg && strstr(c->clas, "elegram"))
+			*tg = 1;
 	}
-	return 0;
 }
 
 static void
 viewtag(const Arg *arg)
 {
 	Monitor *m = tagmonitor(arg->ui), *prev = selmon;
+	int earlyreturn, hasff, hastg;
 
 	if (m != selmon) {
 		unfocus(selmon->sel, 0);
@@ -370,19 +378,20 @@ viewtag(const Arg *arg)
 	}
 
 	claimtag(m, arg->ui & ((1u << SPECIAL_FIRST) - 1));
+	/* view() arranges only when the tagset changes, so this is recorded before it: when
+	   view() early-returns, this arrange is what applies the layout claimtag chose */
+	earlyreturn = (m->tagset[m->seltags] == (arg->ui & TAGMASK));
 	view(arg);
 	if (!selmon)
 		return;
-	if (arg->ui & (1 << 10))
-		selmon->lt[selmon->sellt] = &layouts[3];
-	else if (selmon->lt[selmon->sellt] == &layouts[3])
-		selmon->lt[selmon->sellt] = &layouts[0];
-	arrange(selmon);
+	if (earlyreturn)
+		arrange(selmon);
 	/* workspace 11: hyprland launches the missing Telegram/Firefox pair */
 	if (arg->ui & (1 << 10)) {
-		if (!hasclass(selmon, 1 << 10, "irefox"))
+		pairpresent(selmon, 1 << 10, &hasff, &hastg);
+		if (!hasff)
 			spawn(&(Arg){ .v = telegram_ffcmd });
-		if (!hasclass(selmon, 1 << 10, "elegram"))
+		if (!hastg)
 			spawn(&(Arg){ .v = telegram_tgcmd });
 	}
 	/* follow only when the workspace moved to another monitor */
@@ -450,22 +459,7 @@ pendingclear(SpecialSpawn *p)
 static int
 clientclassis(Client *c, const char *cls)
 {
-	XClassHint ch;
-	int hit;
-
-	ch.res_class = ch.res_name = NULL;
-	if (!XGetClassHint(dpy, c->win, &ch) || !ch.res_class) {
-		if (ch.res_class)
-			XFree(ch.res_class);
-		if (ch.res_name)
-			XFree(ch.res_name);
-		return 0;
-	}
-	hit = !strcmp(ch.res_class, cls);
-	XFree(ch.res_class);
-	if (ch.res_name)
-		XFree(ch.res_name);
-	return hit;
+	return !strcmp(c->clas, cls);
 }
 
 /* the window tagged for this overlay. onscreen = 1 only matches one you can actually
@@ -749,6 +743,7 @@ toggleviewtag(const Arg *arg)
 	} else {
 		claimtag(selmon, mask);
 	}
+	telegramlayout(selmon, selmon->tagset[selmon->seltags]);
 	updatecurrentdesktop();
 	focus(NULL);
 	arrange(selmon);
@@ -770,6 +765,7 @@ tagclientto(const Arg *arg)
 		c->tags &= ~mask;
 		if (!c->tags)
 			c->tags = selmon->tagset[selmon->seltags];
+		telegramlayout(selmon, selmon->tagset[selmon->seltags]);
 		focus(NULL);
 		arrange(selmon);
 		updateclientlist();
@@ -781,6 +777,7 @@ tagclientto(const Arg *arg)
 		sendmon(c, m);
 	c->tags = mask;
 	focus(c);
+	telegramlayout(m, m->tagset[m->seltags]);
 	updatecurrentdesktop();
 	arrange(m);
 	updateclientlist();

@@ -1,0 +1,14 @@
+--- a/dwm.c
++++ b/dwm.c
+@@ -1638,7 +1638,10 @@
+ 		showhide(c->snext);
+ 	} else {
+ 		/* hide clients bottom up */
+ 		showhide(c->snext);
+-		XMoveWindow(dpy, c->win, WIDTH(c) * -2, c->y);
++		/* parked off-screen in layout order: taffybar's workspace widget sorts each
++		   workspace's windows by their real x, and -2*WIDTH parks them wide-first,
++		   which is not the order they have on screen */
++		XMoveWindow(dpy, c->win, c->x - 2 * sw, c->y);
+ 	}
+ }

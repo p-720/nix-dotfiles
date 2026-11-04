@@ -18,6 +18,8 @@ let
       ./patches/nobardrw.diff
       ./patches/attachbottom.diff
       ./patches/dragmfact.diff
+      ./patches/parkorder.diff
+      ./patches/classcache.diff
       # last: its context lines only exist after anybar rewrites bh/updategeom
       ./patches/permonitorstart.diff
     ];
