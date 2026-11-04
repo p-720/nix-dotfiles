@@ -9,7 +9,6 @@
     "reserveTokens": 8192
   },
   "packages": [
-    "npm:pi-ask-user",
     "git:github.com/okiess/pi-opencode-go-provider@fix/context-window-merge",
     "npm:@sting8k/pi-vcc",
     "npm:pi-commandcode-provider",
