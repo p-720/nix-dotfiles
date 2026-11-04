@@ -2796,11 +2796,11 @@
         "nixpkgs": "nixpkgs_18"
       },
       "locked": {
-        "lastModified": 1793607014,
-        "narHash": "sha256-sm4kPwSruutcMQCh0Pg/ny+52ldxYEvYydHUuwGG6OI=",
+        "lastModified": 1793761943,
+        "narHash": "sha256-olIupbJvUpuHqYJbM4QBHCJ5q9ntHe82us36sMvMBv8=",
         "owner": "omarcresp",
         "repo": "t3code-flake",
-        "rev": "efb984f597106793984bce573d0a81d2e1d426cf",
+        "rev": "a35e2dd228f29765eddbf3d7a1c4a7297f5697bb",
         "type": "github"
       },
       "original": {
