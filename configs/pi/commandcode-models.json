@@ -642,6 +642,14 @@
       "maxTokens": 256000
     },
     {
+      "id": "stealth/crouton-alpha",
+      "name": "Crouton Alpha (CC)",
+      "api": "openai-completions",
+      "reasoning": false,
+      "contextWindow": 1048576,
+      "maxTokens": 65536
+    },
+    {
       "id": "reflection/beam:free",
       "name": "Beam 1.0 (CC)",
       "api": "openai-responses",
@@ -664,6 +672,14 @@
       "reasoning": true,
       "contextWindow": 262144,
       "maxTokens": 32768
+    },
+    {
+      "id": "inclusionai/ling-3.1-flash-1019",
+      "name": "Ling 3.1 Flash 1019 (CC)",
+      "api": "openai-completions",
+      "reasoning": false,
+      "contextWindow": 1000000,
+      "maxTokens": 65536
     },
     {
       "id": "meta/muse-spark-1.1",
