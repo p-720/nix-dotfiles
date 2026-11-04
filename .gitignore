@@ -30,3 +30,8 @@ meta.db-wal
 cache/
 models-store.json
 web-search-cache
+
+# editor/backup leftovers and the local taffybar cabal build
+*.bak
+modules/nixos/taffybar/build/
+configs/pi/commandcode-models.json
