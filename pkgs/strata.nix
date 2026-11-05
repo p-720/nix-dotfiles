@@ -5,11 +5,11 @@
 
 appimageTools.wrapType2 rec {
   pname = "strata";
-  version = "0.2.10";
+  version = "0.2.11";
 
   src = fetchurl {
     url = "https://github.com/Niko1221/Strata/releases/download/v${version}/Strata-${version}-linux-x86_64.AppImage";
-    sha256 = "sha256-4KX4QCFIp8BbXqwsIft8fMP7bWOVOAhOX3moMhd76JU=";
+    sha256 = "sha256-nKyb5/gc6Syn+wuDkYC+xz1FS4rksrwKckwGeMLiEZ4=";
   };
 
   # bundled gstreamer libs in the AppImage link libstdc++, absent from the
