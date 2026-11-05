@@ -152,6 +152,8 @@
     enableNvidia = true;
   };
   services.flatpak.enable = true;
+	xdg.portal.enable = true;
+
 
   # i18n.defaultLocale = "en_US.UTF-8";
 
@@ -285,6 +287,9 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
   modules.printing3d.enable = true;
   modules.warp.enable = false;
   modules.keyrings.enable = true;
+  # engine API proxy: the host gateway hard-codes a 12 MiB body cap and 500s a turn with several pictures
+  modules.strataProxy.enable = true;
+  modules.strataProxy.user = config.user;
 
   users.users.${config.user} = {
     isNormalUser = true;
