@@ -306,7 +306,9 @@
       # unstable-small.tdesktop
       jpegoptim
       kdePackages.filelight
-      # anydesk
+      my.anydesk
+      unstable.rustdesk-bin
+      my.ketch
       gedit
       qbittorrent
       nautilus
