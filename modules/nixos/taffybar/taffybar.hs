@@ -98,14 +98,14 @@ primaryBarConfig =
     { barCssClasses = ["primary"],
       startWidgets = [workspacesWidget Nothing, inhibitorWidget, memoryWidget],
       centerWidgets = [gcalWidget, clockWidget],
-      endWidgets = [audioSliderWidget, micSliderWidget, weatherWidget, polypomoWidget, pomotaskWidget]
+      endWidgets = [audioSliderWidget, micSliderWidget, weatherWidget, polypomoWidget]
     }
 
 secondaryBarConfig :: SimpleTaffyConfig
 secondaryBarConfig =
   baseBarConfig
     { barCssClasses = ["secondary"],
-      startWidgets = [workspacesWidget (Just (\ws -> maybe False (\n -> n >= 6 && n < 12) (workspaceNumericId (workspaceIdentity ws)))), inhibitorWidget, memoryWidget, diskWidget, pomotaskWidget],
+      startWidgets = [workspacesWidget (Just (\ws -> maybe False (\n -> n >= 6 && n < 12) (workspaceNumericId (workspaceIdentity ws)))), inhibitorWidget, memoryWidget, diskWidget],
       centerWidgets = [gcalWidget, clockWidget],
       endWidgets = [trayWidget, audioSliderWidget, micSliderWidget]
     }
@@ -547,16 +547,9 @@ weatherWidget =
   textWttrNew "https://wttr.in/Moscow?format=%c%t%20(%f)" 600
     >>= moduleWrap "weather"
 
-pomotaskWidget :: TaffyIO Gtk.Widget
-pomotaskWidget =
-  streamingCommand
-    "pomotask"
-    -- setpriv pdeathsig: pkill taffybar reparents children instead of reaping
-    -- them, so a plain child leaks a timer process on every bar restart
-    "exec setpriv --pdeathsig TERM /etc/nixos/configs/waybar/polybar-pomotask.py"
-    [(1, "/etc/nixos/configs/waybar/polybar-pomotask.py --stop")]
-    Nothing
-
+-- deliberately no pomotask widget: polybar-pomotask.py has a nix-shell shebang and
+-- streamingCommand re-runs a finished stream forever, so the bar evaluated nix every
+-- ~1s forever and pegged nix-daemon. polypomo is a plain binary, so it can stream.
 polypomoWidget :: TaffyIO Gtk.Widget
 polypomoWidget =
   streamingCommand
