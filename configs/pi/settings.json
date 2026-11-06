@@ -1,7 +1,7 @@
 {
   "lastChangelogVersion": "1.4.0",
-  "defaultProvider": "qwen38-next",
-  "defaultModel": "iq3_xxs",
+  "defaultProvider": "strata-anthropic-unsloth",
+  "defaultModel": "unsloth-ud-iq2_xs",
   "defaultThinkingLevel": "xhigh",
   "compaction": {
     "enabled": true,
