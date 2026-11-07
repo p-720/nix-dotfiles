@@ -307,7 +307,7 @@
       jpegoptim
       kdePackages.filelight
       my.anydesk
-      unstable.rustdesk-bin
+      # unstable.rustdesk-bin
       my.ketch
       gedit
       qbittorrent
