@@ -15,6 +15,7 @@ const DEFAULTS = {
 	maxConcurrent: 1,
 	familyIdleGraceMs: 10_000,
 	humanHoldMs: 180_000,
+	priorityTtlMs: 900_000,
 	leaseTtlMs: 30_000,
 };
 
@@ -42,6 +43,8 @@ const GLOBAL_MAX = num("PI_SLOT_MAX", cfg.maxConcurrent);
 const GRACE_MS = num("PI_SLOT_GRACE_MS", cfg.familyIdleGraceMs);
 const TTL_MS = num("PI_SLOT_TTL_MS", cfg.leaseTtlMs);
 const HOLD_MS = num("PI_SLOT_HOLD_MS", cfg.humanHoldMs);
+const MAX_HOLD_MS = num("PI_SLOT_MAX_HOLD_MS", 6 * 3_600_000);
+const PRIORITY_MS = num("PI_SLOT_PRIORITY_MS", cfg.priorityTtlMs);
 const IDLE_EXIT_MS = num("PI_SLOT_IDLE_EXIT_MS", 30_000);
 const SWEEP_MS = num("PI_SLOT_SWEEP_MS", 2_000);
 const CLOSE_GRACE_MS = num("PI_SLOT_CLOSE_GRACE_MS", 3_000);
@@ -64,6 +67,7 @@ interface Client {
 	family: string;
 	lastSeen: number;
 	holdUntil: number;
+	priorityUntil: number;
 	idle: boolean;
 	children: Map<string, ChildDecl>;
 	leases: Set<string>;
@@ -186,6 +190,13 @@ function reservedFamily(now: number): string | null {
 	return null;
 }
 
+function priorityFamily(now: number): string | null {
+	for (const client of clients.values()) {
+		if (client.priorityUntil > now) return client.family;
+	}
+	return null;
+}
+
 function currentOwner(ep: Endpoint, now: number): string | null {
 	const sticky = ep.sticky;
 	if (sticky === null) return null;
@@ -200,29 +211,39 @@ function currentOwner(ep: Endpoint, now: number): string | null {
 	return sticky.family;
 }
 
-function rank(item: QueueItem, owner: string | null, now: number): [number, number, number] {
-	const familyRank = owner !== null && item.family === owner ? 0 : 1;
+function rank(item: QueueItem, owner: string | null, pri: string | null, now: number): [number, number, number] {
+	const familyRank = pri !== null && item.family === pri ? 0 : owner !== null && item.family === owner ? 1 : 2;
 	// A parent parked on its own delegated children waits behind them.
 	const self = clients.get(item.clientId);
 	const childRank = self !== undefined && anyPendingChild(self, now) ? 1 : 0;
 	return [familyRank, childRank, item.at];
 }
 
-function compare(ep: Endpoint, a: QueueItem, b: QueueItem, owner: string | null, now: number): number {
-	const left = rank(a, owner, now);
-	const right = rank(b, owner, now);
+function compare(
+	ep: Endpoint,
+	a: QueueItem,
+	b: QueueItem,
+	owner: string | null,
+	pri: string | null,
+	now: number,
+): number {
+	const left = rank(a, owner, pri, now);
+	const right = rank(b, owner, pri, now);
 	return left[0] - right[0] || left[1] - right[1] || left[2] - right[2];
 }
 
 function rebalance(ep: Endpoint): void {
 	const now = Date.now();
 	const owner = currentOwner(ep, now);
+	const pri = priorityFamily(now);
 	while (ep.queue.length > 0) {
-		const sorted = [...ep.queue].sort((a, b) => compare(ep, a, b, owner, now));
+		const sorted = [...ep.queue].sort((a, b) => compare(ep, a, b, owner, pri, now));
 		const best = sorted[0]!;
 		if (ep.holders.size === 0) {
 			const reserved = reservedFamily(now);
 			if (reserved !== null && best.family !== reserved) break;
+			// A claimed thread parks everyone else: it is the one being waited on.
+			if (reserved === null && pri !== null && best.family !== pri) break;
 		}
 		// One request in flight per slot, even for the same process: the extension releases its
 		// lease before queueing a next turn, so a process never waits behind itself by accident.
@@ -242,7 +263,7 @@ function rebalance(ep: Endpoint): void {
 		const client = clients.get(item.clientId);
 		if (client === undefined) continue;
 		const ahead = ep.queue.filter(
-			(other) => other.reqId !== item.reqId && compare(ep, other, item, currentOwnerFamily, now) < 0,
+				(other) => other.reqId !== item.reqId && compare(ep, other, item, currentOwnerFamily, pri, now) < 0,
 		).length;
 		if (ahead === item.lastAhead && item.lastAhead !== -1) continue;
 		item.lastAhead = ahead;
@@ -371,6 +392,7 @@ function snapshot(): Json {
 			threadId: client.threadId,
 			connected: client.sock !== null,
 			holdRemainingMs: client.holdUntil > now ? client.holdUntil - now : 0,
+			priorityRemainingMs: client.priorityUntil > now ? client.priorityUntil - now : 0,
 			leases: client.leases.size,
 			queued: client.queued.size,
 			children: [...client.children.keys()],
@@ -492,12 +514,19 @@ function handleMessage(client: Client, message: Json): void {
 		}
 		case "hold": {
 			const on = message.on === true;
-			client.holdUntil = on ? now + HOLD_MS : 0;
+			const requested = typeof message.ms === "number" && Number.isFinite(message.ms) ? message.ms : HOLD_MS;
+			client.holdUntil = on ? now + Math.min(Math.max(requested, 0), MAX_HOLD_MS) : 0;
 			const endpoint = str("endpoint");
 			if (on && endpoint) {
 				const ep = endpointFor(endpoint);
 				ep.sticky = { family: client.family, at: now };
 			}
+			rebalanceAll();
+			return;
+		}
+		case "priority": {
+			// Extended, not reset, so a claimed thread that is still working keeps its claim.
+			client.priorityUntil = message.on === true ? now + PRIORITY_MS : 0;
 			rebalanceAll();
 			return;
 		}
@@ -567,6 +596,7 @@ function serve(): void {
 			family: id,
 			lastSeen: Date.now(),
 			holdUntil: 0,
+			priorityUntil: 0,
 			idle: false,
 			children: new Map(),
 			leases: new Set(),

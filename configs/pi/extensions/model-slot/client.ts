@@ -34,7 +34,8 @@ export type SlotState = {
 		family: string;
 		threadId: string | null;
 		connected: boolean;
-		holdRemainingMs: number;
+			holdRemainingMs: number;
+			priorityRemainingMs: number;
 		leases: number;
 		queued: number;
 		children: string[];
@@ -275,8 +276,14 @@ export class SlotClient {
 		this.write({ t: "selfid", threadId });
 	}
 
-	hold(on: boolean, endpoint: string | null): void {
-		this.write({ t: "hold", on, ...(endpoint === null ? {} : { endpoint }) });
+	/** `ms` lets a turn-end grace differ from a human wait, which waits as long as it takes. */
+	hold(on: boolean, endpoint: string | null, ms?: number): void {
+		this.write({ t: "hold", on, ...(endpoint === null ? {} : { endpoint }), ...(ms === undefined ? {} : { ms }) });
+	}
+
+	/** Claim the slot for this thread: other families are parked while the claim stands. */
+	priority(on: boolean): void {
+		this.write({ t: "priority", on });
 	}
 
 	idle(isIdle: boolean): void {

@@ -16,6 +16,10 @@ interface SlotConfig {
 	maxConcurrent: number;
 	familyIdleGraceMs: number;
 	humanHoldMs: number;
+	askHoldMs: number;
+	pauseHoldMs: number;
+	turnEndGraceMs: number;
+	priorityTtlMs: number;
 	notifyAfterMs: number;
 	leaseTtlMs: number;
 }
@@ -25,6 +29,10 @@ const DEFAULTS: SlotConfig = {
 	maxConcurrent: 1,
 	familyIdleGraceMs: 10_000,
 	humanHoldMs: 180_000,
+	askHoldMs: 900_000,
+	pauseHoldMs: 6 * 3_600_000,
+	turnEndGraceMs: 60_000,
+	priorityTtlMs: 900_000,
 	notifyAfterMs: 180_000,
 	leaseTtlMs: 30_000,
 };
@@ -60,11 +68,29 @@ function endpointKeys(cfg: SlotConfig): string[] {
 	return cfg.endpoints.map((entry) => normalizeUrl(typeof entry === "string" ? entry : entry.url)).filter(Boolean);
 }
 
+function hostOnly(url: string): string {
+	const normalized = normalizeUrl(url);
+	try {
+		const parsed = new URL(normalized.includes("://") ? normalized : `http://${normalized}`);
+		const protocol = parsed.protocol.toLowerCase().replace(/:$/, "");
+		const pathname = parsed.pathname.replace(/\/+$/, "");
+		return `${protocol}://${parsed.hostname.toLowerCase()}${pathname}`;
+	} catch {
+		return normalized;
+	}
+}
+
 function gatedEndpoint(cfg: SlotConfig, baseUrl: string | undefined): string | null {
 	if (!baseUrl) return null;
 	const key = normalizeUrl(baseUrl);
+	const bare = hostOnly(baseUrl);
 	for (const configured of endpointKeys(cfg)) {
-		if (key === configured || key.startsWith(`${configured}/`) || configured.startsWith(`${key}/`)) return configured;
+		// A configured entry with no port covers every port on that host: one GPU, one slot, and a
+		// server that moves ports does not silently ungate the thread.
+		const hasPort = /:\d+(\/|$)/.test(configured.slice(configured.indexOf("://") + 3));
+		const entry = hasPort ? configured : hostOnly(configured);
+		const request = hasPort ? key : bare;
+		if (request === entry || request.startsWith(`${entry}/`)) return configured;
 	}
 	return null;
 }
@@ -116,6 +142,7 @@ export default function (pi: ExtensionAPI) {
 	let selfReported = false;
 	let lastConnectAttemptAt = 0;
 	let connectAttempts = 0;
+	let claimed = false;
 	let gaveUpConnecting = false;
 	const waiting = new Map<string, { startedAt: number; timer: NodeJS.Timeout | null }>();
 
@@ -175,6 +202,7 @@ export default function (pi: ExtensionAPI) {
 				"ask_human: park your work and ask the user for a decision when the next step depends on something only they can decide.",
 			promptGuidelines: [
 				"Call ask_human instead of guessing when a decision belongs to the human; the model slot is held for them while they answer.",
+				"Never end a turn with an unanswered question in plain text ('want me to…', 'shall I…', 'should I…'). Ask with ask_human and wait: ending the turn hands the model slot to another thread.",
 				"Do not use ask_human for routine confirmations or to report finished work.",
 			],
 			annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: false },
@@ -247,6 +275,7 @@ export default function (pi: ExtensionAPI) {
 		if (result.status === "granted") {
 			lease = result.reqId ?? null;
 			leaseEndpoint = endpoint;
+			if (claimed) active.priority(true);
 			if (result.waitedMs >= cfg.notifyAfterMs) {
 				ctx.ui.notify(`model slot: resumed after ${secondsOf(result.waitedMs)} queued`, "info");
 			}
@@ -261,8 +290,12 @@ export default function (pi: ExtensionAPI) {
 	// A held lease is only handed back when the turn ends or when this process blocks on another
 	// gated process of its own family, which otherwise queues behind the process waiting for it.
 	pi.on("agent_end", () => {
+		const heldEndpoint = leaseEndpoint;
 		releaseLease();
 		client?.idle(true);
+		// The turn is over but the thought may not be: keep the slot while the human decides whether
+		// to answer or `/p`. Handing the model over mid-thought restarts everyone else for nothing.
+		if (client !== null && cfg.turnEndGraceMs > 0) client.hold(true, heldEndpoint, cfg.turnEndGraceMs);
 	});
 	pi.on("agent_settled", () => {
 		releaseLease();
@@ -274,7 +307,8 @@ export default function (pi: ExtensionAPI) {
 	pi.on("ui_prompt_start", () => {
 		if (client === null || humanHold) return;
 		humanHold = true;
-		client.hold(true, leaseEndpoint ?? endpointKeys(cfg)[0] ?? null);
+		// A question the human has not answered yet is not a finished turn: hold until they answer.
+		client.hold(true, leaseEndpoint ?? endpointKeys(cfg)[0] ?? null, cfg.askHoldMs);
 	});
 	pi.on("ui_prompt_end", () => {
 		if (client === null || !humanHold) return;
@@ -321,7 +355,7 @@ export default function (pi: ExtensionAPI) {
 	pi.on("before_agent_start", (event, ctx) => {
 		if (gatedEndpoint(cfg, ctx.model?.baseUrl) === null) return;
 		return {
-			systemPrompt: `${event.systemPrompt}\n\n## Model slot\nRequests to the active model are arbitrated by a single-slot broker on this machine: one request runs at a time, and a delegated subagent inherits this thread's place in line.\n- A request that had to queue is normal, not a fault. Wait it out; the wait is already paid for.\n- When the next step needs the human, call ask_human instead of stopping silently: the slot stays reserved for you while they answer, so you do not have to re-queue behind other work.`,
+			systemPrompt: `${event.systemPrompt}\n\n## Model slot\nRequests to the active model are arbitrated by a single-slot broker on this machine: one request runs at a time, and a delegated subagent inherits this thread's place in line.\n- A request that had to queue is normal, not a fault. Wait it out; the wait is already paid for.\n- Never end a turn with an unanswered question in prose ("want me to", "shall I", "should I"). Ask with ask_human and wait for the answer: the slot stays yours while they think and the turn continues in this same context. A turn that ends without asking hands the model to another thread after a short grace, and you re-queue behind everyone.\n- You keep the model for the whole turn, so finish the work you started before stopping; if you must stop, ask_human or state the assumption you are proceeding on.`,
 		};
 	});
 
@@ -339,6 +373,58 @@ export default function (pi: ExtensionAPI) {
 				return;
 			}
 			ctx.ui.notify(formatState(state), "info");
+		},
+	});
+
+	// Human-side controls. The model is parked inside pi, so these only move the broker's view of
+	// who the slot belongs to, which is exactly what the waiting window needs.
+	const commandClient = (ctx: ExtensionContext): SlotClient | null => {
+		if (client === null) ctx.ui.notify("model slot: no broker (ungated)", "warning");
+		return client;
+	};
+
+	const holdCommand = (ctx: ExtensionContext, on: boolean, ms: number, message: string): void => {
+		const active = commandClient(ctx);
+		if (active === null) return;
+		active.hold(on, endpointKeys(cfg)[0] ?? null, ms);
+		ctx.ui.notify(message, "info");
+	};
+
+	const pauseDescription = "Hold the model slot for this thread while you think (release with /resume)";
+	const pauseHandler = (ctx: ExtensionContext): void =>
+		holdCommand(ctx, true, cfg.pauseHoldMs, `model slot: held for this thread (${secondsOf(cfg.pauseHoldMs)}) - no other thread starts until /resume`);
+	const resumeHandler = (ctx: ExtensionContext): void => holdCommand(ctx, false, 0, "model slot: hold released, other threads may start");
+
+	for (const name of ["pause", "p"]) {
+		pi.registerCommand(name, {
+			description: pauseDescription,
+			async handler(_args, ctx) {
+				pauseHandler(ctx);
+			},
+		});
+	}
+
+	pi.registerCommand("resume", {
+		description: "Give up a /pause hold on the model slot",
+		async handler(_args, ctx) {
+			resumeHandler(ctx);
+		},
+	});
+
+	pi.registerCommand("immediately", {
+		description: "Claim the model slot now: other threads park until this one stops claiming it",
+		async handler(args, ctx) {
+			const active = commandClient(ctx);
+			if (active === null) return;
+			const off = /^(off|stop|cancel|release)$/i.test(args.trim());
+			active.priority(!off);
+			ctx.ui.notify(
+				off
+					? "model slot: claim released, other threads resume on the next grant"
+					: `model slot: claimed for ${secondsOf(cfg.priorityTtlMs)} - other threads park; a request already running is not interrupted; /immediately off gives it up`,
+				"info",
+			);
+			claimed = !off;
 		},
 	});
 }
@@ -361,6 +447,7 @@ function formatState(state: SlotState): string {
 		entry.push(
 			`${client.label}${client.threadId ? ` thread ${client.threadId.slice(0, 8)}` : ""}` +
 				`${client.holdRemainingMs > 0 ? ` hold ${secondsOf(client.holdRemainingMs)}` : ""}` +
+				`${client.priorityRemainingMs > 0 ? ` claimed ${secondsOf(client.priorityRemainingMs)}` : ""}` +
 				`${client.children.length > 0 ? ` children ${client.children.length}` : ""}`,
 		);
 		byFamily.set(client.family, entry);

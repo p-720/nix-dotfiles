@@ -1,8 +1,12 @@
 {
-	"endpoints": ["http://192.168.1.203:47832/v1"],
+	"endpoints": ["http://192.168.1.203"],
 	"maxConcurrent": 1,
 	"familyIdleGraceMs": 10000,
 	"humanHoldMs": 180000,
+	"askHoldMs": 900000,
+	"pauseHoldMs": 21600000,
+	"turnEndGraceMs": 60000,
+	"priorityTtlMs": 900000,
 	"notifyAfterMs": 180000,
 	"leaseTtlMs": 30000
 }
