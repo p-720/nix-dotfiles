@@ -12,7 +12,11 @@
   boot.initrd.kernelModules = [ ];
   boot.kernelModules = [ "vfio-pci" "nvidia_uvm" "ntsync" "i2c-dev" ];
   boot.kernel.sysctl = {
-    "vm.swappiness" = 10; # Replace with your calculated value (e.g., 1, 6, or 10)
+    # Strata runs with MemorySwapMax=0, so its pages can never be swapped out.
+    # Everything else may: a high swappiness pushes idle daemons (t3, editor,
+    # desktop leftovers) into the 16G swapfile instead of letting them sit on
+    # hot model pages, and instead of the kernel dropping the model's page cache.
+    "vm.swappiness" = 150;
     # "vm.vfs_cache_pressure" = 50; # Optional: helps keep file metadata in RAM longer
   };
   boot.kernelParams = [ # "quiet" "vga=current" "udev.log_level=3" "rd.systemd.show_status=auto" "nowatchdog"
