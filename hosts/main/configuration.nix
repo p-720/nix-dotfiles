@@ -316,9 +316,11 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
   modules.printing3d.enable = true;
   modules.warp.enable = false;
   modules.keyrings.enable = true;
-  # engine API proxy: the host gateway hard-codes a 12 MiB body cap and 500s a turn with several pictures
+  # The engine's own API server accepts 256 MiB bodies, so the proxy is not needed. The engine
+  # service binds the proxy's port with the same state.json key; the GUI is not involved.
   modules.strataProxy.enable = true;
   modules.strataProxy.user = config.user;
+  modules.strataEngine.enable = false;
 
   users.users.${config.user} = {
     isNormalUser = true;
