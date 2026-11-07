@@ -8,6 +8,33 @@
   imports = [ ./hardware-configuration.nix ];
   modules.flakes.enable = true;
   modules.maestral.enable = true;
+  modules.powertrack.enable = true;
+
+  # Server mode: the box boots to a TTY, no greeter and no X.  The model owns the
+  # RAM, and the whole graphical stack (sddm, greeter, X, taffybar, picom) is gone
+  # until asked for.  Desktop on demand from a VT: `startx` (runs the same dwm
+  # session script the greeter used).  Login screen back: set these four to
+  # true/false the other way round and rebuild.
+  services.displayManager.enable = lib.mkForce false;
+  services.displayManager.sddm.enable = lib.mkForce false;
+  services.xserver.displayManager.startx.enable = true;
+  services.xserver.displayManager.startx.generateScript = true;
+
+  # startx has no display manager, so the printing-system env from
+  # displayManager.sessionCommands has to be set here too: keep rendering on
+  # llvmpipe so the 3090 stays reserved for Strata.  Also bring up the home-manager
+  # session target, which ~/.xsession would normally start under sddm.
+  services.xserver.displayManager.startx.extraCommands = ''
+    export LIBGL_ALWAYS_SOFTWARE=1
+    export __GLX_VENDOR_LIBRARY_NAME=mesa
+    export MESA_LOADER_DRIVER_OVERRIDE=llvmpipe
+    export GALLIUM_DRIVER=llvmpipe
+    export __EGL_VENDOR_LIBRARY_FILENAMES=/run/opengl-driver/share/glvnd/egl_vendor.d/50_mesa.json
+    export VK_ICD_FILENAMES=/run/opengl-driver/share/vulkan/icd.d/lvp_icd.x86_64.json
+    export VK_DRIVER_FILES=/run/opengl-driver/share/vulkan/icd.d/lvp_icd.x86_64.json
+    if [ -f ~/.xprofile ]; then . ~/.xprofile; fi
+    systemctl --user start hm-graphical-session.target || true
+  '';
   # modules.gpu-screen-recorder.enable = true;
 
   # TODO Agenix
@@ -52,7 +79,9 @@
       url = "https://gu-st.ru/content/lending/russian_trusted_sub_ca_pem.crt";
     })
   ];
-  virtualisation.waydroid.enable = true;
+  # Android container was always running and holding its LXC/waydroid state for
+  # nothing; start it by hand (or flip this back) when Android is actually wanted.
+  virtualisation.waydroid.enable = false;
   programs.nix-ld.enable = true;
   programs.nix-ld.libraries = with pkgs;
     [
