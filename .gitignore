@@ -1,4 +1,4 @@
-hadrware-configuration.nix
+# hardware-configuration.nix stays tracked on purpose: each host carries its own
 result
 .envrc
 .env
