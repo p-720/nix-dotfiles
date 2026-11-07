@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# fx-crash-report — show what fx-watch caught.
+#   fx-crash-report            newest report
+#   fx-crash-report -l         list all caught deaths
+#   fx-crash-report 3          3rd newest
+set -uo pipefail
+OUTDIR="$HOME/fx-crash-reports"
+mapfile -t files < <(ls -1t "$OUTDIR"/*.report.txt 2>/dev/null)
+if (( ${#files[@]} == 0 )); then
+	echo "no reports yet. start it: fx-watch &   (reports land in $OUTDIR)"
+	exit 0
+fi
+case "${1:-}" in
+	-l) for f in "${files[@]}"; do
+			printf '%-46s %s\n' "$(basename "$f")" "$(rg -m1 -o 'pid  +: .*' "$f" 2>/dev/null)"
+		done ;;
+	*) n=${1:-}; n=${n:-0}; sed -n '1,140p' "${files[$n]}" ;;
+esac

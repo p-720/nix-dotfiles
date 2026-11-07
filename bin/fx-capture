@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# fx-capture — make the next death name its own cause.
+#
+# ptrace_scope=1 means we cannot attach a tracer to a firefox we did not start, so this
+# starts the browser itself under a signal trace. The trace tail says whether the browser
+# was SIGKILLed from outside, got SIGTERM/SIGHUP, crashed on its own signal, or quit clean.
+#
+# usage: quit the running firefox first, then:  fx-capture [extra firefox args]
+# slower than usual (every syscall is intercepted). ctrl-c = you killed it, not firefox.
+set -uo pipefail
+OUT="$HOME/fx-crash-reports"
+mkdir -p "$OUT"
+LOG="$OUT/$(date +%Y-%m-%dT%H-%M-%S).capture.txt"
+
+if pgrep -f 'lib/firefox/firefox' >/dev/null 2>&1; then
+	echo "a firefox is already running."
+	echo "quit it first (this needs to be the parent process), or run it on a spare profile:"
+	echo "  fx-capture -P <profile>"
+	exit 1
+fi
+
+echo "capturing -> $LOG  (strace makes firefox slower; that is expected)"
+strace -qq -T -e trace=signal -o "$LOG" firefox --new-instance "$@"
+rc=$?
+
+echo
+echo "=== last signals ==="
+tail -n 25 "$LOG"
+echo
+echo "=== verdict ==="
+if rg -q 'killed by SIGKILL' "$LOG"; then
+	echo "SIGKILL: something external murdered it. firefox never saw it coming; no crash dump possible."
+elif rg -q 'SIGSEGV|SIGABRT|SIGBUS|SIGILL|SIGFPE|SIGTRAP' "$LOG"; then
+	echo "fatal signal from inside: real in-browser crash. check about:crashes and Crashes submitted."
+elif rg -q 'SIGTERM|SIGHUP' "$LOG"; then
+	echo "SIGTERM/SIGHUP: asked to die, or its terminal/session hung up."
+elif rg -q 'exited with' "$LOG"; then
+	code=$(rg -o 'exited with [0-9]+' "$LOG" | tail -1)
+	echo "$code"
+else
+	echo "no terminating signal in the trace (strace rc=$rc) - process lost some other way"
+fi
+echo "trace: $LOG"

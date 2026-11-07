@@ -1,0 +1,142 @@
+#!/usr/bin/env bash
+# fx-watch — catch what kills firefox.
+#
+# Keeps a lean ring of snapshots. A snapshot lists only NEWLY BORN pids, so whatever does
+# the killing (pkill, an instance manager, a helper that SIGKILLs its child) shows up as
+# its own command line instead of drowning in 2400 process lines. When the browser parent
+# vanishes without a clean shutdown, the ring plus everything journald said around that
+# second lands in a report.
+#
+# run: fx-watch            watch, re-arm after each restart, ctrl-c to stop
+#      fx-watch --pid N   watch one pid instead of discovering firefox (debug)
+#      fx-watch --once    exit after the first death
+#      fx-watch --fast    0.2s cadence (default 0.5s)
+# then: fx-crash-report
+set -uo pipefail
+
+INTERVAL=0.5
+ONCE=0
+TARGET=""
+OUTDIR="$HOME/fx-crash-reports"
+STATE="$OUTDIR/.state"
+RING_MAX=900
+
+while (( $# )); do
+	case "$1" in
+		--pid) TARGET="$2"; shift 2 ;;
+		--once) ONCE=1; shift ;;
+		--fast) INTERVAL=0.2; shift ;;
+		-h|--help) sed -n '2,17p' "$0"; exit 0 ;;
+		*) echo "unknown arg: $1" >&2; exit 2 ;;
+	esac
+done
+
+mkdir -p "$OUTDIR" "$STATE"
+RING="$STATE/ring"
+PREV="$STATE/pids.prev"
+: > "$RING"
+
+log() { printf '%s\n' "$*" >> "$RING"; }
+now()    { date '+%F %T'; }
+now_ms() { date '+%T.%3N'; }
+ago()    { date -d "@$(( $(date +%s) - ${1:-120} ))" '+%F %T'; }
+
+find_parent() {
+	# the parent is the firefox without -contentproc in its args
+	ps -eo pid,args --no-headers \
+		| rg 'firefox(-wrapped)?/firefox|/bin/firefox' \
+		| rg -v 'contentproc|fx-watch|fx-capture|rg ' \
+		| awk '{print $1; exit}'
+}
+
+trap 'exit 130' INT TERM
+
+# our own probe pipeline is not evidence. filter is precise on purpose: a real
+# xdotool/pkill/instance-manager killer still gets logged.
+NOISE='^(ps -eo pid=|awk NR==FNR|awk /MemAvailable|sort|cut -c1-110|tr |date |rg -v -e|cat /proc/|fx-watch|fx-crash-report|xdotool search --class firefox)'
+
+report() {
+	local pid="$1" f
+	local cmd wins
+	cmd=$(cat "/proc/$pid/cmdline" 2>/dev/null | tr '\0' ' ')
+	[[ -z "$cmd" ]] && cmd="(already gone)"
+	wins=$(xdotool search --class firefox 2>/dev/null | wc -l)
+	local prof="$HOME/.config/mozilla/firefox"
+	f="$OUTDIR/$(date '+%Y-%m-%dT%H-%M-%S').report.txt"
+	{
+		echo "================ firefox death report ================"
+		echo "time    : $(now)"
+		echo "pid     : $pid"
+		echo "cmdline : $cmd"
+		echo
+		echo "--- newly born pids before/around death (the killer shows up here) ---"
+		tail -n 300 "$RING"
+		echo
+		echo "--- memory ---"
+		free -h | head -3
+		awk '/MemAvailable|SwapFree/{print}' /proc/meminfo
+		local ep; ep=$(pgrep -x earlyoom | head -1)
+		if [[ -n "$ep" ]]; then cat "/proc/$ep/cmdline" 2>/dev/null | tr '\0' ' '; echo; else echo "earlyoom: not running"; fi
+		echo
+		echo "--- top rss right after death ---"
+		ps -eo pid,ppid,etimes,rss,args --sort=-rss --no-headers | cut -c1-110 | head -12
+		echo
+		echo "--- journald around the death ---"
+		echo "entries in window, unfiltered: $(journalctl --since "$(ago 150)" --no-pager 2>/dev/null | wc -l)"
+		journalctl --since "$(ago 150)" --no-pager 2>/dev/null | rg -v 'mihomo|nix-daemon|accepted connection from pid' | tail -130
+		echo
+		echo "--- kernel around the death ---"
+		journalctl -k --since "$(ago 150)" --no-pager 2>/dev/null | tail -40
+		echo
+		echo "--- coredumps, last 10 min (firefox absent = firefox never faulted) ---"
+		coredumpctl list --since "-10 min" --no-pager 2>/dev/null | tail -10
+		echo
+		echo "--- firefox crash reporter state (empty = it never crashed itself) ---"
+		ls -la --time-style=full-iso "$prof"/*/crashes/ "$prof"/'Crash Reports'/glean/db/ 2>/dev/null | head -16
+		ls -la --time-style=full-iso "$prof"/*/datareporting/ 2>/dev/null | head -10
+		ls -la --time-style=full-iso "$prof"/*/parent.lock 2>/dev/null
+		echo
+		echo "--- still alive ---"
+		pgrep -a dwm | head -2; pgrep -a Xorg | head -2
+		echo "firefox windows seen now: $wins"
+	} > "$f" 2>&1
+	echo "CAUGHT: pid $pid died at $(now)  ->  $f"
+	echo "        read it with: fx-crash-report"
+}
+
+echo "fx-watch: started $(now) cadence=${INTERVAL}s reports -> $OUTDIR"
+log "=== fx-watch start $(now) interval=$INTERVAL ==="
+
+while :; do
+	pid=$TARGET
+	[[ -z "$pid" ]] && pid=$(find_parent)
+	if [[ -z "$pid" ]]; then sleep 2; continue; fi
+
+	log "=== watching pid $pid $(now_ms) | $(cat "/proc/$pid/cmdline" 2>/dev/null | tr '\0' ' ') ==="
+	echo "watching firefox parent pid $pid"
+	ps -eo pid= --no-headers > "$PREV-ids"   # prime so the first tick reports no 'new'
+	ticks=0
+	wins=?
+
+	while kill -0 "$pid" 2>/dev/null; do
+		ps -eo pid=,ppid=,etimes=,comm=,args= --no-headers --sort=pid > "$STATE/snap"
+		new=$(awk -v noise="$NOISE" 'NR==FNR{seen[$1]=1;next} !($1 in seen){
+					line=$5; for(i=6;i<=NF;i++) line=line" "$i;
+					if (line ~ noise) next;
+					print $1"("line")"
+				}' "$PREV-ids" "$STATE/snap" 2>/dev/null | cut -c1-120 | tr '\n' ';')
+		awk '{print $1}' "$STATE/snap" > "$PREV-ids"
+		(( ticks % 4 == 0 )) && wins=$(xdotool search --class firefox 2>/dev/null | wc -l)
+		mem=$(awk '/MemAvailable/{printf "%.0fMB", $2/1024}' /proc/meminfo)
+		log "$(now_ms) win=${wins:-?} mem=$mem new:${new:- none}"
+		(( ticks % 240 == 0 )) && { tail -n "$RING_MAX" "$RING" > "$RING.tmp" && mv "$RING.tmp" "$RING"; }
+		(( ticks++ ))
+		sleep "$INTERVAL"
+	done
+
+	report "$pid"
+	[[ $ONCE == 1 ]] && exit 0
+	TARGET=""
+	log "=== re-arming $(now_ms) ==="
+	sleep 3
+done
