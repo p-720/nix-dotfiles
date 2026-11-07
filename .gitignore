@@ -35,3 +35,6 @@ web-search-cache
 *.bak
 modules/nixos/taffybar/build/
 configs/pi/commandcode-models.json
+
+# a 4.4M find dump got committed once; keep it out for good
+allpaths.txt
