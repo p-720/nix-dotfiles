@@ -38,3 +38,11 @@ configs/pi/commandcode-models.json
 
 # a 4.4M find dump got committed once; keep it out for good
 allpaths.txt
+
+# machine-local secrets: VPN private keys, LAN device tokens, pool login. These were
+# tracked and pushed since 2023, so untracking is the only thing standing between a
+# fresh clone and a private key - do not re-add them.
+wgcf-profile.conf
+*.rej
+configs/polybar/xiaomi_light_control.py
+configs/polybar/humpool.py

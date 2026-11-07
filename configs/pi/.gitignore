@@ -2,6 +2,7 @@ sessions/
 .pi-lens/
 auth.json
 models.json
+models.json.bak*
 mcp-*.json
 crashes.json
 run-history.jsonl
