@@ -67,6 +67,7 @@ interface Client {
 	family: string;
 	lastSeen: number;
 	holdUntil: number;
+	holdHard: boolean;
 	priorityUntil: number;
 	idle: boolean;
 	children: Map<string, ChildDecl>;
@@ -184,7 +185,12 @@ function anyPendingChild(client: Client, now: number): boolean {
 
 function reservedFamily(now: number): string | null {
 	for (const client of clients.values()) {
-		if (client.holdUntil > now) return client.family;
+		// Only a hard hold walls the slot off: a human question or /pause means work is waiting on a
+		// person. A turn-end grace hold keeps ownership only, so an idle GPU is not left idle while
+		// every other thread waits behind a thread that has nothing queued.
+		if (client.holdUntil > now && client.holdHard) return client.family;
+		// A parent parked on a delegated child keeps the slot only while that start is still
+		// plausible (CHILD_CLAIM_MS), which is what gives the child priority over a stranger.
 		if (anyPendingChild(client, now)) return client.family;
 	}
 	return null;
@@ -516,6 +522,7 @@ function handleMessage(client: Client, message: Json): void {
 			const on = message.on === true;
 			const requested = typeof message.ms === "number" && Number.isFinite(message.ms) ? message.ms : HOLD_MS;
 			client.holdUntil = on ? now + Math.min(Math.max(requested, 0), MAX_HOLD_MS) : 0;
+			client.holdHard = on ? message.hard !== false : false;
 			const endpoint = str("endpoint");
 			if (on && endpoint) {
 				const ep = endpointFor(endpoint);
@@ -596,6 +603,7 @@ function serve(): void {
 			family: id,
 			lastSeen: Date.now(),
 			holdUntil: 0,
+			holdHard: false,
 			priorityUntil: 0,
 			idle: false,
 			children: new Map(),

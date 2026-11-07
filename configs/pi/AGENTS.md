@@ -6,7 +6,11 @@
 - **NEVER use `find` or `grep`** in shell commands. They are slower and produce noisy output.
 - **ALWAYS use `fd`** to search for files (faster, ignores .gitignore, colorized output).
 - **ALWAYS use `rg` (ripgrep)** to search file contents (faster, respects .gitignore, better filtering).
-- Use subagents up to 4 (parallelizing work actually more tokens per second)
+- Use as many subagents as the work wants — no cap. Parallelizing is more tokens per second.
+- **Prefer T3 `delegate_task` over native subagent tools** (`Agent`, `spawn_agent`).
+- **Subagents must be the same model as me — never route work to another provider or model.**
+  - With `delegate_task`, leave `target.providerInstanceId`/`target.model` unset so the child inherits this thread's model.
+  - No `--other-model`, no "use a cheaper/stronger model for the child", no provider swaps. Same rule for children of children.
 - For browser automation use T3 `preview_*` tools first; fall back to the playwright MCP (connect first) if they don't cover the case.
 - This is a hard rule, not a suggestion. Replace any instinct to use `find`/`grep` immediately.
 - We're on NixOS

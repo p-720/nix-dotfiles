@@ -144,7 +144,7 @@ export default function (pi: ExtensionAPI) {
 	let connectAttempts = 0;
 	let claimed = false;
 	let gaveUpConnecting = false;
-	const waiting = new Map<string, { startedAt: number; timer: NodeJS.Timeout | null }>();
+	const waiting = new Map<string, { startedAt: number; timer: NodeJS.Timeout | null; notifiedAt: number | null }>();
 
 	const releaseLease = (): void => {
 		if (lease !== null && client !== null) client.release(lease);
@@ -165,13 +165,16 @@ export default function (pi: ExtensionAPI) {
 		candidate.onQueue = (reqId, info) => {
 			const entry = waiting.get(reqId);
 			if (entry === undefined) return;
+			const state = `${info.holders}/${info.max} in use${info.ahead > 0 ? `, ${info.ahead} ahead` : ""}`;
+			if (entry.notifiedAt === null) {
+				// Queuing is invisible in T3 until you say so, and a silent wait reads as a hang.
+				entry.notifiedAt = Date.now();
+				ctx.ui.notify(`model slot: waiting (${state})`, "info");
+			}
 			if (entry.timer === null) {
 				const timer = setTimeout(() => {
 					entry.timer = null;
-					ctx.ui.notify(
-						`model slot busy: waiting ${secondsOf(Date.now() - entry.startedAt)} (${info.holders}/${info.max} in use${info.ahead > 0 ? `, ${info.ahead} ahead` : ""})`,
-						"info",
-					);
+					ctx.ui.notify(`model slot busy: waiting ${secondsOf(Date.now() - entry.startedAt)} (${state})`, "info");
 				}, cfg.notifyAfterMs);
 				timer.unref?.();
 				entry.timer = timer;
@@ -265,7 +268,7 @@ export default function (pi: ExtensionAPI) {
 		// Never queue behind a lease this same process left over on a different endpoint.
 		releaseLease();
 		const reqId = `req-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-		const entry = { startedAt: Date.now(), timer: null as NodeJS.Timeout | null };
+		const entry = { startedAt: Date.now(), timer: null as NodeJS.Timeout | null, notifiedAt: null as number | null };
 		waiting.set(reqId, entry);
 
 		const result = await active.acquire(endpoint, ctx.signal, reqId);
@@ -295,7 +298,7 @@ export default function (pi: ExtensionAPI) {
 		client?.idle(true);
 		// The turn is over but the thought may not be: keep the slot while the human decides whether
 		// to answer or `/p`. Handing the model over mid-thought restarts everyone else for nothing.
-		if (client !== null && cfg.turnEndGraceMs > 0) client.hold(true, heldEndpoint, cfg.turnEndGraceMs);
+		if (client !== null && cfg.turnEndGraceMs > 0) client.hold(true, heldEndpoint, cfg.turnEndGraceMs, false);
 	});
 	pi.on("agent_settled", () => {
 		releaseLease();

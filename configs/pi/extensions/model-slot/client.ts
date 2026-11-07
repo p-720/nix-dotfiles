@@ -276,9 +276,10 @@ export class SlotClient {
 		this.write({ t: "selfid", threadId });
 	}
 
-	/** `ms` lets a turn-end grace differ from a human wait, which waits as long as it takes. */
-	hold(on: boolean, endpoint: string | null, ms?: number): void {
-		this.write({ t: "hold", on, ...(endpoint === null ? {} : { endpoint }), ...(ms === undefined ? {} : { ms }) });
+	/** `ms` lets a turn-end grace differ from a human wait. `hard` walls the slot off; a soft hold
+	 * only keeps ownership, so an idle slot is not wasted while the holder has nothing queued. */
+	hold(on: boolean, endpoint: string | null, ms?: number, hard: boolean = true): void {
+		this.write({ t: "hold", on, hard, ...(endpoint === null ? {} : { endpoint }), ...(ms === undefined ? {} : { ms }) });
 	}
 
 	/** Claim the slot for this thread: other families are parked while the claim stands. */

@@ -269,6 +269,19 @@ test("a human hold keeps the slot reserved and expires on its own", async (t) =>
 	await stranger.granted("s1");
 });
 
+test("a soft hold keeps priority but never blocks a stranger that has work", async (t) => {
+	const broker = await startBroker(t);
+	const [holder, stranger] = await broker.peers(2);
+
+	holder.acquire("g1");
+	await holder.granted("g1");
+	holder.release("g1");
+	holder.send({ t: "hold", on: true, hard: false, endpoint: GATED });
+
+	stranger.acquire("s1");
+	await stranger.granted("s1");
+});
+
 test("a client that dies without releasing still gives the slot back", async (t) => {
 	const broker = await startBroker(t);
 	const [doomed, survivor] = await broker.peers(2);
