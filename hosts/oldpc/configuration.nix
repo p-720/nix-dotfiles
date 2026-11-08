@@ -7,6 +7,10 @@
   ];
   modules.flakes.enable = true;
   modules.taffybar.enable = true;
+  # Defaults kept from main, and they still hold here: 500 W PSU, so this box runs at 20-65%
+  # of its capacity, which is where an 80+ unit really does sit near 90% efficiency.  If the
+  # wall figure ever looks too good against a meter, psuEfficiencyPercent = 85 is the dial.
+  modules.powertrack.enable = true;
 
   # users.users.andrew.extraGroups = ["corectrl" "gamemode"];
   # programs.corectrl ={

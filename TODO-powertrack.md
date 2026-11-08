@@ -6,8 +6,8 @@ A tiny (about 5 MB RSS) systemd service that samples this machine's power draw, 
 kWh, keeps live daily/weekly/monthly totals, and appends every closed period to a small history
 file that a `powertrack` CLI can report on.
 
-Status: **done**, enabled for `hosts/main`. Not running until you `rebuild-default` — and see
-Notes first, the new files must stay tracked in git for the flake to see them.
+Status: **done**, enabled for `hosts/main` and `hosts/oldpc`. Not running until you
+`rebuild-default` — and see Notes first, the new files must stay tracked in git for the flake to see them.
 
 ## Measurement reality (why the numbers are "measured + estimated")
 
@@ -81,7 +81,7 @@ and trend-accurate; it is not a meter.
       Deliberately *not* `ProtectKernelTunables`: it read-only binds the `/sys` paths the
       collector has to write.
 - [x] `powertrack` CLI into `environment.systemPackages`.
-- [x] Enabled for `hosts/main/configuration.nix` only.
+- [x] Enabled for `hosts/main/configuration.nix` and `hosts/oldpc/configuration.nix`.
 - [x] Option types that fail at eval instead of runtime: `types.ints.positive` for intervals,
       `types.ints.between 1 100` for the PSU divisor (it is a divisor), `ints.between 0 23` for
       tariff hours.
@@ -143,5 +143,9 @@ and trend-accurate; it is not a meter.
 - `energy_uj` is root-only, so there is no DynamicUser option worth a udev rule for one root process.
 - nixpkgs 26.05 dropped `types.secs`, `types.positiveInt`, `lib.takeWhile`, `lib.compare` and
   `lib.findIndex`; the module avoids all of them (caught by eval, not by reading docs).
-- Files: `modules/nixos/powertrack/{default.nix,collect.sh,cli.sh}`, one line enabled in
-  `hosts/main/configuration.nix`.
+- Files: `modules/nixos/powertrack/{default.nix,collect.sh,cli.sh}`, one line enabled in each of
+  `hosts/{main,oldpc}/configuration.nix`.
+- **oldpc check (Ivy Bridge i7-3770 + RTX 3070 Laptop GPU):** defaults unchanged. `package-0` is the
+  only zone read, so Intel's separate `core`/`uncore` zones cannot double-count the CPU; RAPL wrap
+  headroom (65.5 kJ) and the Moscow tariff match main; the baked nvidia-smi is 595.71.05, the same
+  version `/proc/driver/nvidia/version` reports, so NVML answers inside the sandbox.
