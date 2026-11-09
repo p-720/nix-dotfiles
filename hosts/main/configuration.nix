@@ -10,15 +10,11 @@
   modules.maestral.enable = true;
   modules.powertrack.enable = true;
 
-  # Server mode: the box boots to a TTY, no greeter and no X.  The model owns the
-  # RAM, and the whole graphical stack (sddm, greeter, X, taffybar, picom) is gone
-  # until asked for.  Desktop on demand from a VT: `startx` (runs the same dwm
-  # session script the greeter used).  Login screen back: set these four to
-  # true/false the other way round and rebuild.
-  services.displayManager.enable = lib.mkForce false;
-  services.displayManager.sddm.enable = lib.mkForce false;
-  services.xserver.displayManager.startx.enable = true;
-  services.xserver.displayManager.startx.generateScript = true;
+  # SDDM greeter is back (the TTY/startx server mode is off).
+  services.displayManager.enable = lib.mkForce true;
+  services.displayManager.sddm.enable = lib.mkForce true;
+  services.xserver.displayManager.startx.enable = false;
+  services.xserver.displayManager.startx.generateScript = false;
 
   # startx has no display manager, so the printing-system env from
   # displayManager.sessionCommands has to be set here too: keep rendering on
