@@ -26,6 +26,14 @@
       "maxTokens": 65536
     },
     {
+      "id": "claude-fable-5-2",
+      "name": "Claude Fable 5.2 (CC)",
+      "api": "anthropic-messages",
+      "reasoning": false,
+      "contextWindow": 1000000,
+      "maxTokens": 65536
+    },
+    {
       "id": "claude-fable-5-1",
       "name": "Claude Fable 5.1 (CC)",
       "api": "anthropic-messages",
@@ -658,14 +666,6 @@
       "maxTokens": 65536
     },
     {
-      "id": "reflection/beam:free",
-      "name": "Beam 1.0 (CC)",
-      "api": "openai-responses",
-      "reasoning": true,
-      "contextWindow": 1048576,
-      "maxTokens": 131072
-    },
-    {
       "id": "inclusionai/ling-3.1-flash",
       "name": "Ling 3.1 Flash (CC)",
       "api": "openai-completions",
@@ -734,6 +734,14 @@
       "name": "Muse Wonder (CC)",
       "api": "openai-responses",
       "reasoning": true,
+      "contextWindow": 1048576,
+      "maxTokens": 65536
+    },
+    {
+      "id": "meta/muse-ember",
+      "name": "Muse Ember (CC)",
+      "api": "openai-responses",
+      "reasoning": false,
       "contextWindow": 1048576,
       "maxTokens": 65536
     },
