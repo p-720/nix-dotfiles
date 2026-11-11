@@ -24,5 +24,6 @@ done
 
 rm /tmp/stop_alarm
 
-xset dpms 60 60 60
-xset s 60
+# restore the dwm session defaults; blanking is xidlehook's job (video aware)
+xset s off
+xset dpms 0 0 0

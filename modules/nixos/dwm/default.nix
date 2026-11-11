@@ -49,7 +49,12 @@ in {
       extraSessionCommands = ''
         ${pkgs.xorg.xsetroot}/bin/xsetroot -cursor_name left_ptr
         ${pkgs.xorg.xset}/bin/xset s off
-        ${pkgs.xorg.xset}/bin/xset dpms 0 0 180
+        # NOTE xset dpms only counts raw input, so it blanks mid-video. Keep the
+        # server timers at 0 (DPMS stays enabled or force off returns BadMatch)
+        # and let xidlehook blank, since it can see audio and fullscreen windows.
+        ${pkgs.xorg.xset}/bin/xset dpms 0 0 0
+        (while xset q >/dev/null 2>&1; do ${pkgs.procps}/bin/pgrep -x xidlehook >/dev/null || ${pkgs.xidlehook}/bin/xidlehook --detect-sleep --not-when-audio --not-when-fullscreen \
+          --timer 180 '${pkgs.xorg.xset}/bin/xset dpms force off' '${pkgs.xorg.xset}/bin/xset dpms force on'; sleep 2; done) &
         # same explicit layout switch i3 used; fcitx5 can otherwise leave it stale
         ${pkgs.xorg.setxkbmap}/bin/setxkbmap us,ru -option 'grp:alt_shift_toggle'
         ${pkgs.dunst}/bin/dunst &

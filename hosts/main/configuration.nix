@@ -897,7 +897,7 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
     playwright-test
     # open-webui
     ddcutil
-    unstable.telegram-desktop
+    my.telegram-bin
     my.ketch
     unstable.cline
     my.kilo
