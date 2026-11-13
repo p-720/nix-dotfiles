@@ -16,18 +16,9 @@
   services.xserver.displayManager.startx.enable = false;
   services.xserver.displayManager.startx.generateScript = false;
 
-  # startx has no display manager, so the printing-system env from
-  # displayManager.sessionCommands has to be set here too: keep rendering on
-  # llvmpipe so the 3090 stays reserved for Strata.  Also bring up the home-manager
-  # session target, which ~/.xsession would normally start under sddm.
+  # Bring up the home-manager session target, which ~/.xsession would normally
+  # start under sddm.
   services.xserver.displayManager.startx.extraCommands = ''
-    export LIBGL_ALWAYS_SOFTWARE=1
-    export __GLX_VENDOR_LIBRARY_NAME=mesa
-    export MESA_LOADER_DRIVER_OVERRIDE=llvmpipe
-    export GALLIUM_DRIVER=llvmpipe
-    export __EGL_VENDOR_LIBRARY_FILENAMES=/run/opengl-driver/share/glvnd/egl_vendor.d/50_mesa.json
-    export VK_ICD_FILENAMES=/run/opengl-driver/share/vulkan/icd.d/lvp_icd.x86_64.json
-    export VK_DRIVER_FILES=/run/opengl-driver/share/vulkan/icd.d/lvp_icd.x86_64.json
     if [ -f ~/.xprofile ]; then . ~/.xprofile; fi
     systemctl --user start hm-graphical-session.target || true
   '';
@@ -40,16 +31,7 @@
   qt.platformTheme = "gnome";
   nix.settings.trusted-users = [ "root" "andrew" ];
 
-  # X11 only: Wayland/Hyprland keeps hardware GL
-  services.xserver.displayManager.sessionCommands = ''
-      export LIBGL_ALWAYS_SOFTWARE=1
-      export __GLX_VENDOR_LIBRARY_NAME=mesa
-      export MESA_LOADER_DRIVER_OVERRIDE=llvmpipe
-      export GALLIUM_DRIVER=llvmpipe
-      export __EGL_VENDOR_LIBRARY_FILENAMES=/run/opengl-driver/share/glvnd/egl_vendor.d/50_mesa.json
-      export VK_ICD_FILENAMES=/run/opengl-driver/share/vulkan/icd.d/lvp_icd.x86_64.json
-      export VK_DRIVER_FILES=/run/opengl-driver/share/vulkan/icd.d/lvp_icd.x86_64.json
-    '';
+  # software GL / Composite off now live in modules.software-gl
 
   security.pam.loginLimits = [
     {
@@ -245,11 +227,7 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
       Option "UseSysmemPixmapAccel" "false"
       Option "NoFlip" "true"
     '';
-    extraConfig = ''
-      Section "Extensions"
-        Option "Composite" "Disable"
-      EndSection
-    '';
+
     serverFlagsSection = ''
       Option "BlankTime" "1"
       Option "StandbyTime" "1"
