@@ -64,9 +64,6 @@ static int tagowner[LENGTH(tags)] = {
 
 static const Rule rules[] = {
 	/* class                     instance  title       tags mask  isfloating  monitor */
-	{ "Telegram",                NULL,     NULL,       1 << 10,   0,          -1 },
-	{ "TelegramDesktop",         NULL,     NULL,       1 << 10,   0,          -1 },
-	{ "org.telegram.desktop",    NULL,     NULL,       1 << 10,   0,          -1 },
 	{ "max",                     NULL,     NULL,       1 << 11,   0,          -1 },
 	{ "Firefox",                 NULL,     NULL,       0,         0,          -1 },
 	{ "Brave-browser",           NULL,     NULL,       0,         0,          -1 },
@@ -94,64 +91,6 @@ static const Rule rules[] = {
 	{ NULL,                      NULL,     "Library",           0, 1,       -1 },
 };
 
-/* hyprland workspace 11: firefox 20% | telegram golden ratio | rest stacked */
-static void
-telegram(Monitor *m)
-{
-	Client *c, *ff = NULL, *tg = NULL, *others[64];
-	int n = 0, i, x, w, yy, rh, fw, tw;
-
-	for (c = m->clients; c; c = c->next) {
-		/* the overlays are floating and sized by centerspecial(); counting one as a tiled
-		   client reserved a column for a window this layout never places */
-		if (!ISVISIBLE(c) || c->isfloating)
-			continue;
-		if (!ff && strstr(c->clas, "irefox"))
-			ff = c;
-		else if (!tg && strstr(c->clas, "elegram"))
-			tg = c;
-		else if (n < 64)
-			others[n++] = c;
-	}
-
-	if (!ff && !tg) {
-		tile(m);
-		return;
-	}
-
-	/* each column keeps its border allowance and hands it back with -2*bw, the way tile()
-	   does; passing m->wh straight through made the pair taller than the work area.
-	   interact 0 for the same reason as tile(): the flag only picks which bounds the
-	   request is clamped to, and dwm skips size hints for tiled clients anyway. */
-	fw = ff ? (int)(m->ww * 0.20) : 0;
-	if (ff) {
-		resize(ff, m->wx, m->wy, fw - 2 * ff->bw, m->wh - 2 * ff->bw, 0);
-	}
-
-	x = m->wx + fw;
-	w = m->ww - fw;
-	if (tg) {
-		if (n > 0) {
-			tw = (int)(w * 0.618);
-			resize(tg, x, m->wy, tw - 2 * tg->bw, m->wh - 2 * tg->bw, 0);
-			x += tw;
-			w -= tw;
-		} else {
-			resize(tg, x, m->wy, w - 2 * tg->bw, m->wh - 2 * tg->bw, 0);
-			w = 0;
-		}
-	}
-
-	yy = m->wy;
-	for (i = 0; i < n && w > 0; i++) {
-		rh = (m->wy + m->wh - yy) / (n - i);
-		resize(others[i], x, yy, w - 2 * others[i]->bw, rh - 2 * others[i]->bw, 0);
-		yy += rh;
-	}
-	/* deliberately no restack(): dwm 6.6 arrange() restacks after the layout returns, and
-	   a second one here redrew the bar and re-stacked the whole monitor on every arrange */
-}
-
 /* layout(s) */
 static const float mfact     = 0.70; /* factor of master area size [0.05..0.95] */
 static const int nmaster     = 1;    /* number of clients in master area */
@@ -163,7 +102,6 @@ static const Layout layouts[] = {
 	{ "[]=",      tile },    /* first entry is default */
 	{ "><>",      NULL },    /* no layout function means floating behavior */
 	{ "[M]",      monocle },
-	{ "ff-tg",    telegram },
 };
 
 static Monitor *
@@ -208,19 +146,6 @@ hometag(Monitor *m)
 	return 1u;
 }
 
-/* ff-tg is class-based, so it may only ever be the layout of a monitor that is showing
-   workspace 11; on leaving, back to tile. */
-static void
-telegramlayout(Monitor *m, unsigned int viewtags)
-{
-	if (!m)
-		return;
-	if (viewtags & (1u << 10))
-		m->lt[m->sellt] = &layouts[3];
-	else if (m->lt[m->sellt] == &layouts[3])
-		m->lt[m->sellt] = &layouts[0];
-}
-
 /* dwm keeps a tagset per monitor, so the same tag can be displayed by both.
    sendmon then retags a moved window to the other monitor's view; when that
    monitor later switches away, the window is tagged for a workspace nobody
@@ -255,11 +180,6 @@ claimtag(Monitor *m, unsigned int mask)
 			c->tags = mask;
 		}
 	}
-	/* a monitor that just lost this tag arranges whatever is left of its own view, so its
-	   layout follows that view. The monitor about to *display* mask is synced by viewtag
-	   with the whole view view() installs, which claimtag cannot see yet. */
-	for (mm = mons; mm; mm = mm->next)
-		telegramlayout(mm, mm->tagset[mm->seltags]);
 	for (i = 0; i < LENGTH(tags); i++)
 		if (mask & (1u << i))
 			tagowner[i] = m->num;
@@ -343,34 +263,24 @@ static const char *specialcls[] = {
    For the firefox overlays reuse is by overlay tag only - your own browsing windows are
    never candidates for becoming an overlay. */
 static const int specialreuse[] = { 1, 0, 0, 0, 0, 0, 0, 1, 1 };
-static const char *telegram_ffcmd[] = { "env", "DWM_NO_SPECIAL_TAG=1", "firefox-pwa", "https://ug.kyrgyzstan.kg/pomotask/", NULL };
-static const char *telegram_tgcmd[] = {
-	"sh", "-c", "env GDK_BACKEND=x11 QT_QPA_PLATFORM=xcb WEBKIT_DISABLE_DMABUF_RENDERER=1 Telegram", NULL
-};
+static const char *pomotask_ffcmd[] = { "env", "DWM_NO_SPECIAL_TAG=1", "firefox-pwa", "https://ug.kyrgyzstan.kg/pomotask/", NULL };
 
-/* one walk answers both halves of the workspace 11 pair; asking twice meant a second
-   pass over every client tagged for it */
-static void
-pairpresent(Monitor *m, unsigned int mask, int *ff, int *tg)
+static int
+ffpresent(Monitor *m, unsigned int mask)
 {
 	Client *c;
 
-	*ff = *tg = 0;
-	for (c = m->clients; c; c = c->next) {
-		if (!(c->tags & mask))
-			continue;
-		if (!*ff && strstr(c->clas, "irefox"))
-			*ff = 1;
-		else if (!*tg && strstr(c->clas, "elegram"))
-			*tg = 1;
-	}
+	for (c = m->clients; c; c = c->next)
+		if ((c->tags & mask) && strstr(c->clas, "irefox"))
+			return 1;
+	return 0;
 }
 
 static void
 viewtag(const Arg *arg)
 {
 	Monitor *m = tagmonitor(arg->ui), *prev = selmon;
-	int earlyreturn, hasff, hastg;
+	int earlyreturn;
 
 	if (m != selmon) {
 		unfocus(selmon->sel, 0);
@@ -379,25 +289,17 @@ viewtag(const Arg *arg)
 	}
 
 	claimtag(m, arg->ui & ((1u << SPECIAL_FIRST) - 1));
-	/* the view view() installs replaces the whole tagset, so claimtag's sync - which still
-	   saw workspace 11 in it - cannot decide this monitor's layout */
-	telegramlayout(m, arg->ui & TAGMASK);
 	/* view() arranges only when the tagset changes, so this is recorded before it: when
-	   view() early-returns, this arrange is what applies the layout claimtag chose */
+	   view() early-returns, this arrange is what applies the tagset claimtag installed */
 	earlyreturn = (m->tagset[m->seltags] == (arg->ui & TAGMASK));
 	view(arg);
 	if (!selmon)
 		return;
 	if (earlyreturn)
 		arrange(selmon);
-	/* workspace 11: hyprland launches the missing Telegram/Firefox pair */
-	if (arg->ui & (1 << 10)) {
-		pairpresent(selmon, 1 << 10, &hasff, &hastg);
-		if (!hasff)
-			spawn(&(Arg){ .v = telegram_ffcmd });
-		if (!hastg)
-			spawn(&(Arg){ .v = telegram_tgcmd });
-	}
+	/* workspace 11: hyprland starts the pomotask PWA there */
+	if ((arg->ui & (1 << 10)) && !ffpresent(selmon, 1 << 10))
+		spawn(&(Arg){ .v = pomotask_ffcmd });
 	/* follow only when the workspace moved to another monitor */
 	if (selmon != prev)
 		warppointer(selmon->sel);
@@ -747,7 +649,6 @@ toggleviewtag(const Arg *arg)
 	} else {
 		claimtag(selmon, mask);
 	}
-	telegramlayout(selmon, selmon->tagset[selmon->seltags]);
 	updatecurrentdesktop();
 	focus(NULL);
 	arrange(selmon);
@@ -769,7 +670,6 @@ tagclientto(const Arg *arg)
 		c->tags &= ~mask;
 		if (!c->tags)
 			c->tags = selmon->tagset[selmon->seltags];
-		telegramlayout(selmon, selmon->tagset[selmon->seltags]);
 		focus(NULL);
 		arrange(selmon);
 		updateclientlist();
@@ -781,7 +681,6 @@ tagclientto(const Arg *arg)
 		sendmon(c, m);
 	c->tags = mask;
 	focus(c);
-	telegramlayout(m, m->tagset[m->seltags]);
 	updatecurrentdesktop();
 	arrange(m);
 	updateclientlist();

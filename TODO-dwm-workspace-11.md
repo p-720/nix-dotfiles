@@ -1,5 +1,11 @@
 # TODO: dwm workspace 11 order + reflow
 
+**Superseded:** workspace 11 is a plain workspace now. The ff-tg layout, its automatic
+layout switch (`telegramlayout`) and the Telegram auto-spawn are gone; only the pomotask
+PWA still starts when 11 has no firefox. The Telegram rules are gone too, so a Telegram
+window stays on the workspace where it was opened. Everything below is the history of
+the ff-tg work that no longer exists.
+
 Measured on the live session (`/tmp/p8.log`, probe = `/tmp/probe_all.c`): arriving at 11
 from workspace 8 on the same monitor ran **two** layouts - tile (firefox 1340 master,
 telegram 572 slave) then ff-tg (firefox 384, telegram 1536). Leaving 11 was one pass.
