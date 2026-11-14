@@ -17,7 +17,9 @@ Make taffybar look like waybar and carry the same modules that have taffybar equ
 ### 2. Port custom modules
 
 - [x] Add an adapter script that runs `waybar_gcal.sh` and emits Pango markup with waybar's now/none colors.
-- [x] Wrap `polybar-pomotask.py` in a streaming label; left click runs `--stop`.
+- [x] PomoTask as a native Haskell widget (one TLS WebSocket in taffybar, no subprocess, no
+      idle polling): click 1 stops, click 3 opens the rofi picker, scroll shifts ±60 s.
+      See `TODO-taffybar-pomotask.md`. Replaces the `polybar-pomotask.py` streaming label.
 - [x] Wrap polypomo in a streaming label; left click toggles, right ends, middle/scroll adjust time.
 - [x] Use the built-in wttr.in widget with waybar's Moscow format and a 10 minute interval.
 

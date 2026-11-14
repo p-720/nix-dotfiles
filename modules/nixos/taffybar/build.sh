@@ -7,12 +7,15 @@
 # +RTS -I0 -V0 -RTS, and a binary linked without -rtsopts exits 1 at startup
 # ("Most RTS options are disabled") — the bar then crash-loops at login.
 #
-# The ghc path must match modules.taffybar.ghcEnv; a nixos-rebuild can change
-# the store path — update it here if this starts failing.
+# The ghc must match modules.taffybar.ghcEnv (its package set is what the
+# imports compile against). Resolved from the eval rather than hardcoded: any
+# rebuild moves the store path. Pass one as $1 to override.
 set -euo pipefail
 cd "$(dirname "$0")"
 cache="${XDG_CACHE_HOME:-$HOME/.cache}/taffybar"
-/nix/store/nvdmcr80bp6ry5ls5micaxn5cw78m0bc-ghc-9.10.3-with-packages/bin/ghc \
+ghc="${1:-$(cd /etc/nixos && nix build --impure --no-link --print-out-paths \
+  .#nixosConfigurations.mysystem.config.modules.taffybar.ghcEnv)}"
+"$ghc/bin/ghc" \
   --make -threaded -rtsopts taffybar.hs \
   -outputdir "$cache" \
   -o "$cache/taffybar-linux-x86_64.taffybar-wrapped"

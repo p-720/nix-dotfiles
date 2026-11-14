@@ -1,21 +1,36 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 import Control.Concurrent (forkIO, threadDelay)
-import Control.Concurrent.MVar (MVar, modifyMVar_, newMVar, readMVar, swapMVar, withMVar)
+import Control.Concurrent.MVar (MVar, modifyMVar_, newMVar, readMVar, swapMVar, tryPutMVar, tryTakeMVar, withMVar)
 import Control.Concurrent.STM (atomically, newBroadcastTChanIO, writeTChan)
 import Control.Concurrent.STM.TChan (TChan)
-import Control.Exception (finally)
+import Control.Exception (IOException, SomeException, bracket, catch, finally, try)
 import Control.Exception.Enclosed (catchAny)
-import Control.Monad (foldM, forM_, forever, unless, void, when)
+import Control.Monad (foldM, forM_, forever, replicateM, unless, void, when)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ask)
+import Data.Aeson (Object, Value (..), eitherDecode, encode, object, (.=))
+import qualified Data.Aeson.Key as AK
+import qualified Data.Aeson.KeyMap as KM
+import Data.Bits (shiftR, testBit, xor, (.&.), (.|.))
+import Data.ByteString (ByteString)
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Base64 as B64
+import qualified Data.ByteString.Char8 as BC
+import qualified Data.ByteString.Lazy as BL
+import Data.Char (isAlphaNum, isSpace, ord)
+import Data.Default (def)
+import Data.Foldable (toList)
 import Data.GI.Base (unsafeCastTo)
-import Data.IORef (IORef, newIORef, readIORef, writeIORef)
-import Data.List (stripPrefix)
+import Data.IORef (IORef, modifyIORef', newIORef, readIORef, writeIORef)
+import Data.List (dropWhileEnd, isPrefixOf, stripPrefix)
+import Data.Maybe (fromMaybe)
 import Data.Time.Clock.POSIX (getPOSIXTime)
+import Data.Word (Word8)
 import qualified Data.Map.Strict as M
 import GHC.IO.Encoding (setLocaleEncoding)
 import GHC.Int (Int32)
+import Numeric (readHex)
 import Data.Unique (Unique, newUnique)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
@@ -25,13 +40,16 @@ import qualified GI.Gdk.Structs.EventMotion as GdkMotion
 import qualified GI.Gdk.Structs.EventScroll as GdkScroll
 import qualified GI.Gdk.Structs.Rectangle as GdkRectangle
 import qualified GI.Gtk as Gtk
+import qualified Network.Connection as NC
 import qualified StatusNotifier.Tray as Tray
+import System.Environment (lookupEnv)
 import System.Exit (ExitCode (..))
-import System.IO (hClose, hFlush, hIsEOF, hPutStr, hSetEncoding, stdout, utf8)
+import System.IO (hClose, hFlush, hIsEOF, hPutStr, hPutStrLn, hSetEncoding, stderr, stdout, utf8)
 import System.IO.Unsafe (unsafePerformIO)
 import System.Posix.Process (exitImmediately)
 import System.Posix.Signals (Handler (Catch), installHandler, sigTERM, signalProcessGroup)
 import System.Process
+import System.Random (randomIO)
 import System.Taffybar (dyreTaffybar, getTaffyFile)
 import System.Taffybar.Context (Context (..), TaffyIO)
 import System.Taffybar.Information.Audio (AudioInfo (..), defaultAudioPulseSink, defaultAudioWirePlumberNode, getAudioInfoChanAndVar)
@@ -98,7 +116,7 @@ primaryBarConfig =
     { barCssClasses = ["primary"],
       startWidgets = [workspacesWidget Nothing, inhibitorWidget, memoryWidget],
       centerWidgets = [gcalWidget, clockWidget],
-      endWidgets = [audioSliderWidget, micSliderWidget, weatherWidget, polypomoWidget]
+      endWidgets = [audioSliderWidget, micSliderWidget, weatherWidget, pomotaskWidget, polypomoWidget]
     }
 
 secondaryBarConfig :: SimpleTaffyConfig
@@ -547,9 +565,782 @@ weatherWidget =
   textWttrNew "https://wttr.in/Moscow?format=%c%t%20(%f)" 600
     >>= moduleWrap "weather"
 
--- deliberately no pomotask widget: polybar-pomotask.py has a nix-shell shebang and
--- streamingCommand re-runs a finished stream forever, so the bar evaluated nix every
--- ~1s forever and pegged nix-daemon. polypomo is a plain binary, so it can stream.
+-- PomoTask: the self-hosted pomotasker timer (habits + pomodoro) that the rofi
+-- launcher and the PWA also drive. Its live state exists only on the server
+-- and is only readable over the websocket (there is no REST endpoint for it),
+-- so this keeps one long-lived WSS open inside the bar instead of the old
+-- python child: no nix-shell re-evaluation per spawn, and while nothing is
+-- running the thread just blocks in the socket read rather than waking every
+-- second. The polybar-pomotask.py path also kept re-running a finished stream.
+--
+-- Elapsed time is always recomputed from the server's startTime, so a running
+-- countdown keeps advancing across a dropped connection or a stalled relay.
+
+data PomoMode = PomoStopwatch | PomoTimed deriving (Eq, Show)
+
+-- mirrors the server snapshot; every field is the server's, no local guessing
+data PomoTimer = PomoTimer
+  { pomoRunning :: Bool,
+    pomoMode :: PomoMode,
+    pomoName :: Maybe T.Text,
+    pomoHabitId :: Maybe Int,
+    pomoStartMs :: Maybe Int,
+    pomoElapsedBefore :: Int
+  }
+
+emptyPomoTimer :: PomoTimer
+emptyPomoTimer = PomoTimer False PomoStopwatch Nothing Nothing Nothing 0
+
+-- wall time, not a monotonic clock: the server's timeline is epoch-ms, so a
+-- local monotonic base would drift away from every other client on an NTP step
+pomoNowMs :: IO Int
+pomoNowMs = fmap (\t -> floor (t * 1000) :: Int) getPOSIXTime
+
+pomoElapsedMs :: PomoTimer -> Int -> Int
+pomoElapsedMs s nowMs =
+  pomoElapsedBefore s + case pomoStartMs s of
+    Just ms | pomoRunning s -> max 0 (nowMs - ms)
+    _ -> 0
+
+-- the app's pomodoro budget is fixed and the state only carries a mode flag
+pomoPomodoroMs :: Int
+pomoPomodoroMs = 1500 * 1000
+
+pomoTrimTitle :: T.Text -> T.Text
+pomoTrimTitle t =
+  let limit = 24 in if T.length t > limit then T.take (limit - 1) t <> "…" else t
+
+-- Glyphs match the waybar/polybar modules: 23F0 stopwatch, 1F345 pomodoro.
+-- ⏱ counts up, ⏲ counts down against the app's fixed 25-minute pomodoro.
+-- Same digit layout the polybar module used, so the bar does not change shape
+-- when the timer moves onto it.
+pomoClockText :: PomoTimer -> Int -> T.Text
+pomoClockText s nowMs = glyph <> T.pack (pomoDurationText shown padded)
+  where
+    elapsed = pomoElapsedMs s nowMs
+    (glyph, shown, padded) = case pomoMode s of
+      PomoStopwatch -> (T.singleton '\128354', elapsed, False)
+      PomoTimed -> (T.singleton '\9202', max 0 (pomoPomodoroMs - elapsed), True)
+
+pomoDurationText :: Int -> Bool -> String
+pomoDurationText ms pad
+  | h > 0 = printf "%d:%02d:%02d" h m s
+  | pad = printf "%02d:%02d" m s
+  | otherwise = printf "%d:%02d" m s
+  where
+    totalSec = ms `div` 1000
+    h = totalSec `div` 3600
+    m = (totalSec `mod` 3600) `div` 60
+    s = totalSec `mod` 60
+
+-- "" means nothing to show, which is what hides the module.
+renderPomo :: PomoTimer -> M.Map Int T.Text -> Int -> T.Text
+renderPomo s titles nowMs
+  | not (pomoRunning s) = T.empty
+  | otherwise = title <> separator <> pomoClockText s nowMs
+  where
+    title = case pomoName s of
+      Just n | not (T.null (T.strip n)) -> pomoTrimTitle n
+      _ -> maybe T.empty pomoTrimTitle (flip M.lookup titles =<< pomoHabitId s)
+    separator = if T.null title then T.empty else T.singleton ' '
+
+-- The server merges {...snapshot, ...data} into its own state, so a key sent
+-- as null clears a field while an absent key must not. That distinction is the
+-- reason this reads Values instead of a Maybe-record.
+pomoApply :: Object -> PomoTimer -> PomoTimer
+pomoApply o s =
+  s
+    { pomoRunning = pick asBool "running" (pomoRunning s),
+      pomoMode = case at "mode" of
+        Just v -> maybe (pomoMode s) id (asMode v)
+        Nothing -> pomoMode s,
+      pomoName = pick asText "name" (pomoName s),
+      pomoHabitId = pick asNumber "activeHabitId" (pomoHabitId s),
+      pomoStartMs = pick asNumber "startTime" (pomoStartMs s),
+      pomoElapsedBefore = pick asInt "elapsedBefore" (pomoElapsedBefore s)
+    }
+  where
+    at key = pomoAt key o
+    pick f key d = case at key of
+      Nothing -> d
+      Just v -> f v
+    asBool (Bool b) = b
+    asBool _ = False
+    asInt (Number n) = truncate n
+    asInt Null = 0
+    asInt _ = 0
+    asNumber (Number n) = Just (truncate n)
+    asNumber _ = Nothing
+    asText (String t) = Just t
+    asText _ = Nothing
+    asMode (String t) = Just (if t == "timed" then PomoTimed else PomoStopwatch)
+    asMode _ = Nothing
+
+pomoAt :: T.Text -> Object -> Maybe Value
+pomoAt key = KM.lookup (AK.fromText key)
+
+pomoPingPayload :: ByteString
+pomoPingPayload = BL.toStrict (encode (object ["type" .= ("ping" :: T.Text)]))
+
+pomoStopPayload :: ByteString
+pomoStopPayload = BL.toStrict (encode (object ["type" .= ("timer:stop" :: T.Text)]))
+
+-- A full snapshot, not a patch: the server merges patches, so sending only
+-- elapsedBefore would leave it inconsistent with the startTime every other
+-- client keeps using to compute elapsed.
+pomoShiftPayload :: PomoTimer -> Int -> Int -> ByteString
+pomoShiftPayload st shiftMs nowMs =
+  BL.toStrict $ encode $ object
+    [ "type" .= ("timer:update" :: T.Text),
+      "data" .= object
+        [ "activeHabitId" .= pomoHabitId st,
+          "name" .= pomoName st,
+          "mode" .= (modeText :: T.Text),
+          "running" .= pomoRunning st,
+          "startTime" .= (Just nowMs :: Maybe Int),
+          "elapsedBefore" .= (max 0 (pomoElapsedMs st nowMs + shiftMs) :: Int)
+        ]
+    ]
+  where
+    modeText = case pomoMode st of
+      PomoTimed -> "timed"
+      _ -> "stopwatch"
+
+-- --- minimal RFC 6455 client: nixpkgs has no websocket client library (the
+-- hs-websocket package is gone and wuss needs the missing `websockets`), so
+-- the framing lives here over crypton-connection. Text frames, ping/pong and
+-- close only -- enough for a two-message protocol and nothing else. ---
+
+data PomoConn = PomoConn
+  { pcConn :: NC.Connection,
+    pcBuf :: IORef BS.ByteString,
+    pcPartial :: IORef BS.ByteString
+  }
+
+pomoXorMask :: BS.ByteString -> BS.ByteString -> BS.ByteString
+pomoXorMask mask body = BS.pack (zipWith xor (cycle (BS.unpack mask)) (BS.unpack body))
+
+pomoBe :: Int -> Int -> BS.ByteString
+pomoBe value bytes =
+  BS.pack [fromIntegral (value `shiftR` (8 * (bytes - i - 1))) | i <- [0 .. bytes - 1]]
+
+pomoBeToInt :: BS.ByteString -> Int
+pomoBeToInt = BS.foldl (\acc w -> acc * 256 + fromIntegral w) 0
+
+-- opcode 0x1 text, 0xa pong; every client frame must be masked
+pomoEncodeFrame :: Word8 -> BS.ByteString -> IO BS.ByteString
+pomoEncodeFrame opcode body = do
+  mask <- BS.pack <$> replicateM 4 (randomIO :: IO Word8)
+  let n = BS.length body
+      lengthField
+        | n < 126 = BS.singleton (0x80 .|. fromIntegral n)
+        | n < 65536 = BS.cons 0xfe (pomoBe n 2)
+        | otherwise = BS.cons 0xff (pomoBe n 8)
+  pure (BS.cons (0x80 .|. opcode) lengthField <> mask <> pomoXorMask mask body)
+
+-- The frame parser is pure over a buffer: nixpkgs has no websocket client, so
+-- the framing is ours, and keeping it out of the socket code is what makes the
+-- coalesced/split/extended-length cases testable without a server.
+--
+-- Never drop the tail: the server can coalesce two messages into one TLS
+-- record, so the reader must know exactly where one frame ends.
+pomoFrameLength :: BS.ByteString -> Maybe Int
+pomoFrameLength bs
+  -- the guard below evaluates b1 through headerNeed, so the short-buffer case
+  -- has to be settled first or a one-byte TLS record crashes instead of waiting
+  | BS.length bs < 2 = Nothing
+  | BS.length bs < headerNeed = Nothing
+  | BS.length bs < total = Nothing
+  | otherwise = Just total
+  where
+    b1 = BS.index bs 1
+    len0 = b1 .&. 0x7f
+    lenBytes = case len0 of
+      126 -> 2
+      127 -> 8
+      _ -> 0
+    maskLen = if testBit b1 7 then 4 else 0
+    headerNeed = 2 + lenBytes
+    plen
+      | lenBytes == 0 = fromIntegral len0
+      | otherwise = pomoBeToInt (BS.take lenBytes (BS.drop 2 bs))
+    total = headerNeed + maskLen + plen
+
+-- (fin, opcode, payload); the caller drops pomoFrameLength bytes from its
+-- buffer, which is why Nothing here means "parser bug", not "no data yet".
+pomoDecodeFrame :: BS.ByteString -> Maybe (Bool, Word8, BS.ByteString)
+pomoDecodeFrame bs = do
+  total <- pomoFrameLength bs
+  let b0 = BS.index bs 0
+      b1 = BS.index bs 1
+      len0 = b1 .&. 0x7f
+      lenBytes = case len0 of
+        126 -> 2
+        127 -> 8
+        _ -> 0
+      maskLen = if testBit b1 7 then 4 else 0
+      payloadStart = 2 + lenBytes + maskLen
+      -- the mask sits after the extended length field, not right after the
+      -- two-byte header
+      mask = BS.take maskLen (BS.drop (2 + lenBytes) bs)
+      payload = BS.take (total - payloadStart) (BS.drop payloadStart bs)
+  pure (testBit b0 7, b0 .&. 0x0f, if maskLen == 0 then payload else pomoXorMask mask payload)
+
+-- Never drop the tail: the server can coalesce two messages into one TLS
+-- record, and a reader that assumed one record per frame would lose the second.
+pomoRecvFrame :: PomoConn -> IO (Bool, Word8, BS.ByteString)
+pomoRecvFrame pc = do
+  buf <- readIORef (pcBuf pc)
+  case pomoDecodeFrame buf of
+    Just frame -> do
+      case pomoFrameLength buf of
+        Nothing -> ioError (userError "pomotask: frame length disagreed with the parser")
+        Just total -> writeIORef (pcBuf pc) (BS.drop total buf)
+      pure frame
+    Nothing -> do
+      chunk <- pomoGetChunk (pcConn pc)
+      if BS.null chunk
+        then ioError (userError "pomotask: socket reached EOF")
+        else do
+          writeIORef (pcBuf pc) (buf `BS.append` chunk)
+          pomoRecvFrame pc
+
+-- EOF arrives as an exception from the TLS layer, and the supervisor's job is
+-- to reconnect on any of them, so it is swallowed into the empty-chunk signal.
+pomoGetChunk :: NC.Connection -> IO BS.ByteString
+pomoGetChunk conn = NC.connectionGetChunk conn `catchAny` (\_ -> pure BS.empty)
+
+-- A fragmented message must be glued, not skipped: a proxy that fragments
+-- would otherwise make the state silently stale.
+pomoTextPart :: PomoConn -> Bool -> BS.ByteString -> IO BS.ByteString
+pomoTextPart pc fin part =
+  if fin
+    then do
+      prev <- readIORef (pcPartial pc)
+      writeIORef (pcPartial pc) BS.empty
+      pure (prev `BS.append` part)
+    else do
+      modifyIORef' (pcPartial pc) (<> part)
+      pure BS.empty
+
+pomoTlsSettings :: NC.TLSSettings
+-- `def` is TLSSettingsSimple False False False with ciphersuite_default. The
+-- third flag looks like the SNI switch but crypton-connection ignores it: SNI
+-- and the hostname the certificate is checked against both come from
+-- defaultParamsClient, so leaving validation enabled here is what we want.
+pomoTlsSettings = def
+
+pomoConnect :: NC.ConnectionContext -> PomoEndpoint -> IO NC.Connection
+pomoConnect ctx ep =
+  NC.connectTo
+    ctx
+    ( NC.ConnectionParams
+        (peHost ep)
+        (fromIntegral (pePort ep))
+        -- Nothing here is crypton-connection's plain TCP; the base URL's scheme
+        -- decides, so POMOTASK_BASE=http://127.0.0.1:3000 reaches a local server
+        (if peTls ep then Just pomoTlsSettings else Nothing)
+        Nothing
+    )
+
+-- Not in scope: verifying Sec-WebSocket-Accept. The key is random per
+-- connection, so a proxy replaying an old upgrade would desync framing, and
+-- the supervisor reconnects and resyncs from timer:sync anyway -- cheaper than
+-- dragging in a SHA-1 dependency for a bar widget.
+pomoOpenWs :: NC.ConnectionContext -> PomoEndpoint -> String -> IO PomoConn
+pomoOpenWs ctx ep key = do
+  conn <- pomoConnect ctx ep
+  wsKey <- pomoWsKey
+  NC.connectionPut conn (BC.pack (pomoWsRequest ep key wsKey))
+  status <- pomoReadLine conn
+  unless ("101" `BC.isInfixOf` status) $
+    ioError (userError ("pomotask: websocket handshake rejected: " ++ BC.unpack status))
+  pomoSkipHeaders conn
+  PomoConn conn <$> newIORef BS.empty <*> newIORef BS.empty
+  where
+    pomoSkipHeaders c = do
+      line <- pomoReadLine c
+      -- the line arrives with its LF trimmed, so a blank header line is "\r"
+      if BS.null line || line == BC.pack "\r"
+        then pure ()
+        else pomoSkipHeaders c
+
+pomoWsRequest :: PomoEndpoint -> String -> String -> String
+pomoWsRequest ep key wsKey =
+  concat
+    [ "GET ", pePrefix ep, "/ws?key=", pomoQueryValue key, " HTTP/1.1\r\n",
+      "Host: ", peHost ep, "\r\n",
+      "Upgrade: websocket\r\n",
+      "Connection: Upgrade\r\n",
+      "Sec-WebSocket-Key: ", wsKey, "\r\n",
+      "Sec-WebSocket-Version: 13\r\n\r\n"
+  ]
+
+pomoReadLine :: NC.Connection -> IO BS.ByteString
+pomoReadLine conn =
+  NC.connectionGetLine 4096 conn `catchAny` (\_ -> ioError (userError "pomotask: handshake read failed"))
+
+pomoWsKey :: IO String
+pomoWsKey = do
+  bytes <- BS.pack <$> replicateM 16 (randomIO :: IO Word8)
+  pure (BC.unpack (B64.encode bytes))
+
+pomoQueryValue :: String -> String
+pomoQueryValue = concatMap safe
+  where
+    safe c
+      | isAlphaNum c || c `elem` ("-._~" :: String) = [c]
+      | otherwise = printf "%%%02X" (ord c :: Int)
+
+-- One-shot HTTPS GET. Connection: close means the body ends at EOF, which
+-- avoids tracking Content-Length here; chunked still has to be undone because
+-- express streams some responses rather than buffering them.
+pomoHttpGet :: NC.ConnectionContext -> PomoEndpoint -> String -> String -> IO BS.ByteString
+pomoHttpGet ctx ep key path =
+  bracket (pomoConnect ctx ep) (\conn -> catchAny (NC.connectionClose conn) (\_ -> pure ())) $ \conn -> do
+    NC.connectionPut conn (BC.pack request)
+    raw <- pomoReadUntilClose conn BS.empty
+    pure (pomoHttpBody raw)
+  where
+    request =
+      concat
+        [ "GET ", path, " HTTP/1.1\r\n",
+          "Host: ", peHost ep, "\r\n",
+          "Authorization: Bearer ", key, "\r\n",
+          "Accept: application/json\r\n",
+          "Connection: close\r\n\r\n"
+      ]
+
+pomoReadUntilClose :: NC.Connection -> BS.ByteString -> IO BS.ByteString
+pomoReadUntilClose conn acc = do
+  chunk <- pomoGetChunk conn
+  if BS.null chunk then pure acc else pomoReadUntilClose conn (acc `BS.append` chunk)
+
+pomoHttpBody :: BS.ByteString -> BS.ByteString
+pomoHttpBody raw = case pomoIndexOfDoubleCrlf raw of
+  Nothing -> BS.empty
+  Just i ->
+    let headers = BS.take i raw
+        body = BS.drop (i + 4) raw
+    in if "chunked" `BC.isInfixOf` headers
+         then maybe BS.empty id (pomoDechunk body)
+         else body
+
+pomoIndexOfDoubleCrlf :: BS.ByteString -> Maybe Int
+pomoIndexOfDoubleCrlf bs = go 0
+  where
+    go i
+      | i + 3 >= BS.length bs = Nothing
+      | BS.index bs i == 13 && BS.index bs (i + 1) == 10 && BS.index bs (i + 2) == 13 && BS.index bs (i + 3) == 10 = Just i
+      | otherwise = go (i + 1)
+
+pomoBreakCrLf :: BS.ByteString -> Maybe (BS.ByteString, BS.ByteString)
+pomoBreakCrLf s = case BC.break (== '\r') s of
+  (line, rest) | BS.length rest >= 2 -> Just (line, BS.drop 2 rest)
+  _ -> Nothing
+
+pomoDechunk :: BS.ByteString -> Maybe BS.ByteString
+pomoDechunk = go BS.empty
+  where
+    go acc s = case pomoBreakCrLf s of
+      Nothing -> Nothing
+      Just (line, rest) -> case pomoReadHex (takeWhile (/= ';') (BC.unpack line)) of
+        Just 0 -> Just acc
+        Just n
+          | BS.length rest >= n -> go (acc `BS.append` BS.take n rest) (BS.drop 2 (BS.drop n rest))
+          | otherwise -> Nothing
+        Nothing -> Nothing
+    -- chunk extensions are not expected from this server, so they are trimmed
+    -- rather than parsed
+    pomoReadHex s = case readHex s of
+      [(n, "")] -> Just (n :: Int)
+      _ -> Nothing
+
+-- Any {id, description} pair in the response is a habit title. The endpoint
+-- nests habits under groups and the shape has already been reorganised once,
+-- so scanning outlives another reshuffle; extra ids (archived habits) are
+-- harmless because they are only ever looked up by the running timer.
+pomoHabitTitles :: BS.ByteString -> M.Map Int T.Text
+pomoHabitTitles body = case eitherDecode (BL.fromStrict body) of
+  Right v -> M.fromList (pomoCollectPairs v)
+  Left _ -> M.empty
+  where
+    pomoCollectPairs (Object o) = pair ++ concatMap pomoCollectPairs (KM.elems o)
+      where
+        pair = case (pomoAt "id" o, pomoAt "description" o) of
+          (Just (Number i), Just (String d)) | not (T.null (T.strip d)) -> [(truncate i, d)]
+          _ -> []
+    pomoCollectPairs (Array xs) = concatMap pomoCollectPairs (toList xs)
+    pomoCollectPairs _ = []
+
+pomoHabits :: PomoVar -> IO (M.Map Int T.Text)
+pomoHabits env =
+  pomoHabitTitles <$> pomoHttpGet (pvCtx env) (pvEndpoint env) (pvKey env) (pePrefix (pvEndpoint env) ++ "/api/habits")
+
+data PomoEndpoint = PomoEndpoint
+  { peHost :: String,
+    pePort :: Int,
+    pePrefix :: String,
+    peTls :: Bool
+  }
+  deriving (Eq, Show)
+
+parsePomoBase :: String -> Maybe PomoEndpoint
+parsePomoBase raw = case stripPrefix "https://" t0 of
+  Just rest -> endpoint True rest
+  Nothing -> case stripPrefix "http://" t0 of
+    -- the rofi backend's local server is plain http, and a bar widget that
+    -- forced TLS there would just sit hidden with a handshake error
+    Just rest -> endpoint False rest
+    Nothing -> endpoint True t0
+  where
+    t0 = pomoTrimTrailingSlashes raw
+    endpoint secure rest =
+      let (authority, path) = break (== '/') rest
+          (hostText, portText) = span (/= ':') authority
+          port = case portText of
+            (':':ns) -> readMaybe ns
+            _ -> Nothing
+      in if null hostText
+           then Nothing
+           else Just PomoEndpoint
+                { peHost = hostText,
+                  pePort = fromMaybe (if secure then 443 else 80) port,
+                  pePrefix = if null path then "/pomotask" else path,
+                  peTls = secure
+                }
+
+pomoTrimTrailingSlashes :: String -> String
+pomoTrimTrailingSlashes = dropWhileEnd (== '/')
+
+pomotaskDefaultBase :: String
+pomotaskDefaultBase = "https://ug.kyrgyzstan.kg/pomotask"
+
+pomotaskLauncher :: String
+pomotaskLauncher = "~/.config/rofi/launchers/colorful/pomotask.sh"
+
+pomotaskKeyFile :: IO (Maybe FilePath)
+pomotaskKeyFile = do
+  home <- lookupEnv "HOME"
+  pure (fmap (\h -> h ++ "/Dropbox/pomotask") home)
+
+-- The rofi backend accepts any file that starts with pomo_; keeping the same
+-- check here means a half-written or wrong-format file stays a hidden widget
+-- instead of a thread that reconnects forever against a 401.
+pomoReadKey :: FilePath -> IO (Maybe String)
+pomoReadKey path = do
+  content <- try (readFile path) :: IO (Either IOException String)
+  case content of
+    Left _ -> pure Nothing
+    Right s ->
+      let k = pomoTrimStr s in pure (if "pomo_" `isPrefixOf` k then Just k else Nothing)
+
+pomoTrimStr :: String -> String
+pomoTrimStr = dropWhile isSpace . dropWhileEnd isSpace
+
+pomotaskConfig :: IO (Maybe PomoVar)
+pomotaskConfig = do
+  base <- lookupEnv "POMOTASK_BASE"
+  keyFileEnv <- lookupEnv "POMOTASK_KEY_FILE"
+  keyFilePath <- maybe pomotaskKeyFile (pure . Just) keyFileEnv
+  mkey <- maybe (pure Nothing) pomoReadKey keyFilePath
+  case parsePomoBase (fromMaybe pomotaskDefaultBase base) of
+    Nothing -> do
+      hPutStrLn stderr "pomotask: POMOTASK_BASE is unparseable, widget left hidden"
+      pure Nothing
+    Just endpoint -> case mkey of
+      Nothing -> do
+        hPutStrLn stderr "pomotask: no pomo_ API key, widget left hidden"
+        pure Nothing
+      Just key ->
+        Just <$> (PomoVar <$> NC.initConnectionContext <*> pure endpoint <*> pure key)
+
+data PomoVar = PomoVar
+  { pvCtx :: NC.ConnectionContext,
+    pvEndpoint :: PomoEndpoint,
+    pvKey :: String
+  }
+
+data PomoGui = PomoGui
+  { pgBox :: Gtk.Widget,
+    pgLabel :: Gtk.Label
+  }
+
+data PomoRefs = PomoRefs
+  { prTimer :: IORef PomoTimer,
+    prTitles :: IORef (M.Map Int T.Text),
+    prTitlesAt :: IORef Int,
+    prShown :: IORef T.Text,
+    prLastPing :: IORef Int,
+    prLastMsg :: IORef Int,
+    prFetchGate :: MVar ()
+  }
+
+pomoTickMs, pomoPingMs, pomoSilenceMs, pomoRetryMs, pomoMaxBackoffMs, pomoTitleRetryMs :: Int
+pomoTickMs = 1000
+
+-- Cloudflare's edge drops an idle websocket well before this; the interval is
+-- a keepalive, and a pong (or any message) is what proves the socket is alive.
+pomoPingMs = 30000
+
+-- two missed pings: past this the socket is half-open (suspend, IP change) and
+-- nothing will arrive until we reconnect
+pomoSilenceMs = 120000
+pomoRetryMs = 2000
+pomoMaxBackoffMs = 30000
+pomoTitleRetryMs = 60000
+
+-- Only ever called from the one socket loop thread, so the shown-text cache is
+-- race-free; it is what stops a per-second tick from asking GTK to resize the
+-- bar for a string that did not change.
+pomoRender :: PomoGui -> PomoRefs -> IO ()
+pomoRender gui refs = do
+  st <- readIORef (prTimer refs)
+  titles <- readIORef (prTitles refs)
+  now <- pomoNowMs
+  let txt = renderPomo st titles now
+  shown <- readIORef (prShown refs)
+  when (txt /= shown) $ do
+    writeIORef (prShown refs) txt
+    postGUIASync $ do
+      Gtk.labelSetText (pgLabel gui) txt
+      Gtk.widgetSetVisible (pgBox gui) (not (T.null (T.strip txt)))
+      Gtk.widgetQueueResize (pgBox gui)
+
+pomoTitlesNeeded :: PomoTimer -> M.Map Int T.Text -> Bool
+pomoTitlesNeeded s titles = case pomoHabitId s of
+  Just hid -> not (M.member hid titles)
+  Nothing -> False
+
+-- force=True is the connect-time fetch, so a title is usually ready before the
+-- first second of a timer is rendered. The gate keeps 1-second ticks from
+-- turning a failed fetch into a request loop.
+pomoFetchTitles :: PomoVar -> PomoRefs -> Bool -> IO ()
+pomoFetchTitles env refs force = do
+  st <- readIORef (prTimer refs)
+  titles <- readIORef (prTitles refs)
+  at <- readIORef (prTitlesAt refs)
+  now <- pomoNowMs
+  token <-
+    if force || ((pomoTitlesNeeded st titles || force) && now - at >= pomoTitleRetryMs)
+      then tryTakeMVar (prFetchGate refs)
+      else pure Nothing
+  case token of
+    Nothing -> pure ()
+    Just () -> void $ forkIO $ do
+      result <- (Right <$> pomoHabits env) `catch` (\(e :: SomeException) -> pure (Left e))
+      case result of
+        -- keep the last good titles: an offline bar still knows the name
+        Right m -> modifyIORef' (prTitles refs) (M.union m)
+        Left e -> hPutStrLn stderr ("pomotask: habits fetch failed: " ++ show e)
+      pomoNowMs >>= writeIORef (prTitlesAt refs)
+      void (tryPutMVar (prFetchGate refs) ())
+
+-- The server broadcasts every client's message verbatim to that user's other
+-- clients, including the sender, so a stop from rofi, the phone or the web app
+-- arrives as a raw timer:stop carrying no data. Our state has to normalise to
+-- stopped the same way the server does, or the label keeps counting.
+pomoApplyMessage :: PomoVar -> PomoRefs -> BS.ByteString -> IO ()
+pomoApplyMessage env refs raw = case eitherDecode (BL.fromStrict raw) of
+  Right (Object o) -> case pomoAt "type" o of
+    Just (String t)
+      | t == "timer:sync" || t == "timer:update" -> pomoMergeData refs o
+      | t == "timer:stop" -> do
+          writeIORef (prTimer refs) emptyPomoTimer
+          pomoMergeData refs o
+      | t == "pong" -> pure ()
+      | otherwise -> pure ()
+    _ -> pure ()
+  Right _ -> pure ()
+  Left _ -> pure ()
+
+pomoMergeData :: PomoRefs -> Object -> IO ()
+pomoMergeData refs o = case pomoAt "data" o of
+  Just (Object d) -> modifyIORef' (prTimer refs) (pomoApply d)
+  _ -> pure ()
+
+pomoHandleFrame :: PomoVar -> PomoRefs -> PomoConn -> Bool -> Word8 -> BS.ByteString -> IO ()
+pomoHandleFrame env refs pc fin opcode payload = do
+  now <- pomoNowMs
+  writeIORef (prLastMsg refs) now
+  case opcode of
+    0x8 -> ioError (userError "pomotask: server closed the websocket")
+    -- reply to a control ping even though the protocol uses an app-level one
+    0x9 -> NC.connectionPut (pcConn pc) =<< pomoEncodeFrame 0xa payload
+    0xa -> pure ()
+    0x1 -> pomoHandleText env refs pc fin payload
+    0x0 -> pomoHandleText env refs pc fin payload
+    _ -> pure ()
+
+pomoHandleText :: PomoVar -> PomoRefs -> PomoConn -> Bool -> BS.ByteString -> IO ()
+pomoHandleText env refs pc fin payload = do
+  text <- pomoTextPart pc fin payload
+  unless (BS.null text) $ do
+    pomoApplyMessage env refs text
+    pomoFetchTitles env refs False
+
+-- The read is what paces the loop: while a timer runs the wait is one second
+-- (a redraw has to happen anyway), and while idle it is only as long as it
+-- takes to owe a ping or to declare the socket dead. No timer, no waking.
+pomoWaitMs :: PomoTimer -> PomoRefs -> IO Int
+pomoWaitMs st refs = do
+  now <- pomoNowMs
+  lastPing <- readIORef (prLastPing refs)
+  lastMsg <- readIORef (prLastMsg refs)
+  let candidates =
+        pomoTickMs
+          : [ pomoPingMs - (now - lastPing),
+              pomoSilenceMs - (now - lastMsg)
+            ] ++ [pomoTickMs | pomoRunning st]
+  pure (max 1 (minimum candidates))
+
+pomoStep :: PomoVar -> PomoGui -> PomoRefs -> PomoConn -> IO ()
+pomoStep env gui refs pc = do
+  st <- readIORef (prTimer refs)
+  buffered <- (not . BS.null) <$> readIORef (pcBuf pc)
+  got <-
+    if buffered
+      then pure True
+      else do
+        wait <- pomoWaitMs st refs
+        NC.connectionWaitForInput (pcConn pc) wait
+  when got $ do
+    (fin, opcode, payload) <- pomoRecvFrame pc
+    pomoHandleFrame env refs pc fin opcode payload
+  when (not got) $ do
+    now <- pomoNowMs
+    lastPing <- readIORef (prLastPing refs)
+    when (now - lastPing >= pomoPingMs) $ do
+      writeIORef (prLastPing refs) now
+      NC.connectionPut (pcConn pc) =<< pomoEncodeFrame 0x01 pomoPingPayload
+    lastMsg <- readIORef (prLastMsg refs)
+    when (now - lastMsg >= pomoSilenceMs) $
+      ioError (userError "pomotask: no server traffic, reconnecting")
+  pomoRender gui refs
+
+pomoConnected :: PomoVar -> PomoGui -> PomoRefs -> PomoConn -> IO ()
+pomoConnected env gui refs pc = do
+  now <- pomoNowMs
+  writeIORef (prLastMsg refs) now
+  writeIORef (prLastPing refs) now
+  pomoFetchTitles env refs True
+  pomoRender gui refs
+  forever (pomoStep env gui refs pc)
+
+-- Any exception ends the connection: the read path turns EOF into an error,
+-- framing corruption throws from the TLS layer, and a half-open socket is
+-- detected by pomoWaitMs going silent. Every reconnect re-syncs the timer from
+-- the server's timer:sync, so a lost frame can never leave the label wrong.
+pomoSupervisor :: PomoVar -> PomoGui -> PomoRefs -> IO ()
+pomoSupervisor env gui refs = pomoLoop pomoRetryMs
+  where
+    pomoLoop backoffMs = do
+      openedAt <- pomoNowMs
+      outcome <-
+        try
+          ( pomoOpenWs (pvCtx env) (pvEndpoint env) (pvKey env)
+              >>= pomoConnected env gui refs
+          ) ::
+          IO (Either SomeException ())
+      case outcome of
+        Left err -> hPutStrLn stderr ("pomotask: " ++ show err)
+        Right () -> pure ()
+      now <- pomoNowMs
+      -- a long-lived connection that then dropped is a normal drop, not a
+      -- endpoint problem, so the retry clock restarts at the floor
+      let next = if now - openedAt > 10000 then pomoRetryMs else min pomoMaxBackoffMs (backoffMs * 2)
+      threadDelay (next * 1000)
+      pomoLoop next
+
+-- A click sends its own short-lived connection: the loop thread owns the
+-- long-lived one and blocking in its read is exactly what keeps the bar idle,
+-- so writes are not routed through it.
+pomoSend :: PomoVar -> ByteString -> IO ()
+pomoSend env payload = do
+  outcome <- (Right <$> pomoSendOnce) `catch` (\(e :: SomeException) -> pure (Left e))
+  case outcome of
+    Right () -> pure ()
+    Left err -> do
+      -- one retry a second apart: the prod nginx sometimes 301s mid-reload and
+      -- the rofi backend found its first attempt after every reload failing
+      hPutStrLn stderr ("pomotask: send failed, retrying: " ++ show err)
+      threadDelay 1000000
+      catchAny pomoSendOnce (\e -> hPutStrLn stderr ("pomotask: send failed: " ++ show e))
+  where
+    pomoSendOnce = do
+      pc <- pomoOpenWs (pvCtx env) (pvEndpoint env) (pvKey env)
+      NC.connectionPut (pcConn pc) =<< pomoEncodeFrame 0x01 payload
+      -- the server relays on receipt; closing immediately risks a reset before
+      -- the peer has read, which would drop a stop with no error anywhere
+      threadDelay 150000
+      catchAny (NC.connectionClose (pcConn pc)) (\_ -> pure ())
+
+pomoStop :: PomoVar -> PomoRefs -> IO ()
+pomoStop env refs = do
+  st <- readIORef (prTimer refs)
+  when (pomoRunning st) $ void $ forkIO (pomoSend env pomoStopPayload)
+
+pomoAdjust :: PomoVar -> PomoRefs -> Int -> IO ()
+pomoAdjust env refs shiftMs = do
+  st <- readIORef (prTimer refs)
+  when (pomoRunning st) $ do
+    now <- pomoNowMs
+    void $ forkIO (pomoSend env (pomoShiftPayload st shiftMs now))
+
+-- Click 1 stops the timer, click 3 opens the rofi task picker. Scroll is
+-- +/-1 minute: the way the phone app corrects a timer you started late.
+--
+-- The module is hidden while idle, so click 3 is only reachable with a timer
+-- running; the picker itself is on MODKEY+p/z in dwm for starting one.
+pomotaskWidget :: TaffyIO Gtk.Widget
+pomotaskWidget = do
+  box <- liftIO Gtk.eventBoxNew
+  _ <- widgetSetClassGI box "module"
+  _ <- widgetSetClassGI box "pomotask"
+  label <- liftIO $ Gtk.labelNew (Just T.empty)
+  inner <- liftIO $ padded label
+  liftIO $ do
+    Gtk.containerAdd box inner
+    Gtk.widgetShowAll box
+    Gtk.widgetSetVisible box False
+  conf <- liftIO pomotaskConfig
+  case conf of
+    Nothing -> Gtk.toWidget box
+    Just env -> do
+      gui <- liftIO $ PomoGui <$> Gtk.toWidget box <*> pure label
+      refs <- liftIO $ do
+        now <- pomoNowMs
+        PomoRefs
+          <$> newIORef emptyPomoTimer
+          <*> newIORef M.empty
+          <*> newIORef now
+          <*> newIORef T.empty
+          <*> newIORef now
+          <*> newIORef now
+          <*> newMVar ()
+      liftIO $ do
+        -- deliberately no addWorkspaceScroll: scroll adjusts the timer, and
+        -- the first handler installed on the box would win the event and turn
+        -- the scroll into a workspace switch instead
+        Gtk.widgetAddEvents box [Gdk.EventMaskScrollMask]
+        void $ Gtk.onWidgetScrollEvent box $ \event -> do
+          direction <- GdkScroll.getEventScrollDirection event
+          case direction of
+            Gdk.ScrollDirectionUp -> pomoAdjust env refs 60000 >> pure True
+            Gdk.ScrollDirectionDown -> pomoAdjust env refs (-60000) >> pure True
+            _ -> pure False
+        void $ Gtk.onWidgetButtonPressEvent box $ \event -> do
+          button <- GdkButton.getEventButtonButton event
+          case button of
+            1 -> pomoStop env refs
+            3 -> void $ forkIO (void (spawnCommand pomotaskLauncher) :: IO ())
+            _ -> pure ()
+          pure True
+        void $ forkIO (pomoSupervisor env gui refs)
+      Gtk.toWidget box
+
+-- polypomo stays as it is: a local pomodoro with its own sqlite history and
+-- socket actions, which the bar only ever tails.
 polypomoWidget :: TaffyIO Gtk.Widget
 polypomoWidget =
   streamingCommand

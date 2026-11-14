@@ -20,6 +20,21 @@ in {
       default = pkgs.callPackage ./ghc-env.nix { };
       description = "GHC with the packages taffybar.hs imports, for dyre";
     };
+    # Runtime env for the bar process itself, spliced in at the launch site
+    # (modules/nixos/dwm). File paths, not PATH entries.
+    #   LOCALE_ARCHIVE: gi marshals String through the locale codeset, so with
+    #   no locale set the emoji taffybar.hs draws come out empty. NixOS sets
+    #   neither here (i18n.defaultLocale is off).
+    # No CA setup needed: the TLS client validates against the trust store
+    # compiled into the tls library (settingDisableCertificateValidation is
+    # False, verified live against the pomotasker server).
+    barEnv = mkOption {
+      type = types.str;
+      readOnly = true;
+      default =
+        ''LOCALE_ARCHIVE=${pkgs.glibcLocales}/lib/locale/locale-archive LANG=C.UTF-8 LC_ALL=C.UTF-8'';
+      description = "env assignments the taffybar launch needs";
+    };
   };
   # NOTE parens matter: `mkIf en {...} // x` drops x (mkIf wraps the whole
   # attrset and swallows merged siblings); `mkIf en ({...} // x)` keeps it

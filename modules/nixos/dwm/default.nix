@@ -89,7 +89,9 @@ in {
         # dyre recompiles taffybar.hs on change and shells out to ghc; that
         # env's bin must precede PATH but must not leak into the rest of the
         # session (it also ships a taffybar of its own)
-        (while xset q >/dev/null 2>&1; do PATH=${config.modules.taffybar.ghcEnv}/bin:$PATH ${pkgs.taffybar}/bin/taffybar; sleep 2; done) &
+        # barEnv is spliced as bare assignments: without a UTF-8 locale the
+        # emoji the bar draws come out empty.
+        (while xset q >/dev/null 2>&1; do PATH=${config.modules.taffybar.ghcEnv}/bin:$PATH ${config.modules.taffybar.barEnv} ${pkgs.taffybar}/bin/taffybar; sleep 2; done) &
       '';
     };
 
