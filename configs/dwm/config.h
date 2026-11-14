@@ -55,6 +55,10 @@ typedef struct {
 	time_t deadline;
 } SpecialSpawn;
 static SpecialSpawn pendingspecial[LENGTH(tags) - SPECIAL_FIRST];
+/* The overlay window per special tag, indexed tag - SPECIAL_FIRST. Only dwm-overlay's
+   _DWM_SPECIAL_TAG mark (or a spawn we started) makes a window the overlay; a file
+   chooser carries the same tag but has to keep its own size and ConfigureRequests. */
+static Window overlaywin[LENGTH(tags) - SPECIAL_FIRST];
 /* tags 1-6 start on monitor 0, 7-12 on monitor 1; movetag updates this */
 static int tagowner[LENGTH(tags)] = {
 	0, 0, 0, 0, 0, 0,
@@ -324,6 +328,109 @@ centerspecial(Client *c, Monitor *m)
 	XRaiseWindow(dpy, c->win);
 }
 
+/* 1 when c is the overlay window itself, not a window merely tagged onto its workspace.
+   Every overlay geometry rule (centerspecial in manage, the ConfigureRequest refusal in
+   configurerequest) is for the app the overlay was started for, not for its dialogs. */
+static int
+overlayhead(Client *c)
+{
+	int i;
+
+	if (!c)
+		return 0;
+	for (i = 0; i < (int)LENGTH(overlaywin); i++)
+		if (overlaywin[i] != None && overlaywin[i] == c->win)
+			return 1;
+	return 0;
+}
+
+static void
+overlayheadset(int tag, Window w)
+{
+	if (tag < SPECIAL_FIRST || tag >= LENGTH(tags))
+		return;
+	overlaywin[tag - SPECIAL_FIRST] = w;
+}
+
+/* unregister every slot holding w: X recycles window ids, so a stale entry would
+   later hand the overlay geometry rules to an unrelated window */
+static void
+overlayheadforget(Window w)
+{
+	int i;
+
+	if (w == None)
+		return;
+	for (i = 0; i < (int)LENGTH(overlaywin); i++)
+		if (overlaywin[i] == w)
+			overlaywin[i] = None;
+}
+
+/* mask of the overlay c is a dialog of, 0 when nothing on an overlay owns it.
+   Walks the transient chain: the "overwrite?" sheet of a file chooser is transient
+   for the chooser, not for the browser window that opened the chooser. */
+static unsigned int
+overlaypopup(Client *c)
+{
+	Client *p;
+	Window trans;
+	int hops;
+
+	/* bounded walk: a malformed hint can point two windows at each other */
+	for (hops = 0; hops < 10; hops++) {
+		if (!XGetTransientForHint(dpy, c->win, &trans) || trans == None
+		 || !(p = wintoclient(trans)))
+			return 0;
+		if (p->tags & SPECIALTAGS)
+			return p->tags & SPECIALTAGS;
+		c = p;
+	}
+	return 0;
+}
+
+/* the overlay's own window for this tag if there is one, otherwise any window tagged
+   for it - a popup carries the tag too, and it must not be the one we resize to the
+   overlay box when the workspace is shown again. */
+static Client *
+overlayheadclient(unsigned int mask)
+{
+	Monitor *m;
+	Client *c, *first = NULL;
+
+	for (m = mons; m; m = m->next)
+		for (c = m->clients; c; c = c->next) {
+			if (!(c->tags & mask))
+				continue;
+			if (overlayhead(c))
+				return c;
+			if (!first)
+				first = c;
+		}
+	return first;
+}
+
+/* centerspecial() raises the overlay above everything tiled, which would leave a
+   dialog that was open when the workspace was hidden sitting behind the overlay
+   window. Popups have to come back on top of it, most recently focused highest. */
+static void
+overlayslavesraise(unsigned int mask)
+{
+	Client *c, *order[64];
+	Monitor *m;
+	int i, n;
+
+	for (m = mons; m; m = m->next) {
+		n = 0;
+		for (c = m->stack; c && n < (int)LENGTH(order); c = c->snext)
+			if ((c->tags & mask) && !overlayhead(c) && ISVISIBLE(c))
+				order[n++] = c;
+		/* the stack head is the most recently focused, and raising last lands on
+		   top, so walk it backwards */
+		for (i = n - 1; i >= 0; i--)
+			XRaiseWindow(dpy, order[i]->win);
+	}
+}
+
 static SpecialSpawn *
 pendinglookup(int tag)
 {
@@ -423,15 +530,26 @@ strandedclient(const char *cls)
 }
 
 /* called from manage() before the client is attached: only a window belonging to a
-   spawn we started may join an overlay. Everything else loses the overlay tags it
-   inherited from the monitor view, so opening your own firefox while an overlay tag is
-   showing cannot turn it into an overlay. */
+   spawn we started, or a dialog of a window already on an overlay, may join an overlay.
+   Everything else loses the overlay tags it inherited from the monitor view, so opening
+   your own firefox while an overlay tag is showing cannot turn it into an overlay. */
 static void
 overlayclaim(Client *c, XWindowAttributes *wa)
 {
 	SpecialSpawn *p;
 	Monitor *m;
+	unsigned int mask;
 	int i;
+
+	/* before the spawn guess on purpose: a firefox chooser reports the same class as its
+	   browser window, and claiming it would hide the real overlay behind an unusable
+	   dialog. The popup keeps exactly its parent's tags: a window with no tag at all is
+	   never ISVISIBLE, which is what used to park every file chooser off-screen. */
+	if ((mask = overlaypopup(c))) {
+		c->tags = mask;
+		c->isfloating = 1;
+		return;
+	}
 
 	p = NULL;
 	if (wa->width > 100 && wa->height > 100) {
@@ -446,7 +564,15 @@ overlayclaim(Client *c, XWindowAttributes *wa)
 		}
 	}
 	if (!p) {
+		mask = c->tags;
 		c->tags &= ~SPECIALTAGS;
+		if (!c->tags) {
+			/* the monitor was showing nothing but the overlay, so the strip above
+			   would have made this window invisible: keep it on the overlay, and
+			   floating, because a tiled window here lands behind the overlay window */
+			c->tags = mask;
+			c->isfloating = 1;
+		}
 		return;
 	}
 	p->guess = c->win;
@@ -457,6 +583,8 @@ overlayclaim(Client *c, XWindowAttributes *wa)
 	c->mon = m ? m : selmon;
 	c->tags = 1u << p->tag;
 	c->isfloating = 1;
+	/* claimed as the overlay itself, so its geometry rules apply from manage() on */
+	overlayheadset(p->tag, c->win);
 }
 
 /* the wrapper marks the exact window it started. Honoured whenever that marker
@@ -491,6 +619,7 @@ overlaymark(Client *c)
 		if (!wrong->tags)
 			wrong->tags = 1u << (SPECIAL_FIRST - 1);
 		wrong->isfloating = 0;
+		overlayheadforget(wrong->win);
 		arrange(wrong->mon);
 	}
 	if (p)
@@ -498,26 +627,49 @@ overlaymark(Client *c)
 
 	c->tags = 1u << val;
 	c->isfloating = 1;
+	overlayheadset(val, c->win);
 	centerspecial(c, c->mon);
 	arrange(c->mon);
 	updateclientlist();
 }
 
-/* an overlay tag with no window left on this monitor is dead state: drop it so the
-   next press is a clean open instead of a hide that hides nothing. */
+/* an overlay tag whose overlay window is gone is dead state: drop it so the next press
+   is a clean open instead of a hide that hides nothing. The test is the overlay window
+   itself and not "any window still tagged": a file chooser carries the tag too, and an
+   orphan left on a dead overlay would rise over the next spawn for that tag - those are
+   handed the workspace they stand on, floating. dead may be NULL; idempotent. */
 static void
-overlaycleanup(Monitor *m)
+overlaycleanup(Monitor *m, Client *dead)
 {
-	int idx;
+	Client *c, *next;
+	unsigned int mask;
+	int headless, idx;
 
+	overlayheadforget(dead ? dead->win : None);
 	if (!m)
 		return;
 	for (idx = SPECIAL_FIRST; idx < LENGTH(tags); idx++) {
-		if (!(m->tagset[m->seltags] & (1u << idx)))
+		mask = 1u << idx;
+		if (!(m->tagset[m->seltags] & mask))
 			continue;
-		if (overlayclient(1u << idx, NULL, 0))
+		headless = 1;
+		for (c = m->clients; c; c = c->next)
+			if ((c->tags & mask) && overlayhead(c)) {
+				headless = 0;
+				break;
+			}
+		if (!headless)
 			continue;
-		m->tagset[m->seltags] &= ~(1u << idx);
+		for (c = m->clients; c; c = next) {
+			next = c->next;
+			if (!(c->tags & mask))
+				continue;
+			c->tags = m->tagset[m->seltags] & ~SPECIALTAGS;
+			if (!c->tags)
+				c->tags = hometag(m);
+			c->isfloating = 1;
+		}
+		m->tagset[m->seltags] &= ~mask;
 	}
 	if (!m->tagset[m->seltags])
 		m->tagset[m->seltags] = hometag(m);
@@ -575,7 +727,7 @@ togglespecial(const Arg *arg)
 	/* show it here: reuse the window already tagged for this overlay wherever it
 	   lives (it moves to this monitor), or a still-running window of that app's class
 	   when nothing is tagged */
-	shown = overlayclient(mask, NULL, 0);
+	shown = overlayheadclient(mask);
 	if (!shown && specialreuse[pos])
 		shown = strandedclient(specialcls[pos]);
 	m = selmon;
@@ -598,14 +750,19 @@ togglespecial(const Arg *arg)
 	/* sendmon assigns the target monitor's whole tagset, which would leave the overlay
 	   tagged to the numbered workspace too - then hiding the overlay tag leaves the
 	   window on screen looking like a normal window */
-	if (shown)
+	if (shown) {
 		shown->tags = mask;
+		/* reuse adopts a window nobody marked: it is this overlay now, and without
+		   registering it the geometry rules would still apply to nothing */
+		overlayheadset(idx, shown->win);
+	}
 
 	updatecurrentdesktop();
 	arrange(m);
 	if (shown) {
 		centerspecial(shown, m);
 		focus(shown);
+		overlayslavesraise(mask);
 	} else {
 		focus(NULL);
 		if (!pendinglookup(idx)) {

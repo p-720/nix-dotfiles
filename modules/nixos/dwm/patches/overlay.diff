@@ -1,12 +1,14 @@
---- c2/dwm.c	2026-11-04 07:54:47.227775934 +0300
-+++ c/dwm.c	2026-11-04 07:54:36.571600094 +0300
-@@ -593,6 +593,13 @@
+--- c2/dwm.c
++++ c/dwm.c
+@@ -593,6 +593,15 @@
  	XWindowChanges wc;
  
  	if ((c = wintoclient(ev->window))) {
-+		/* an overlay answers to dwm's own geometry: answering the client request here
-+		   is what let firefox resize itself out of the inset */
-+		if (c->tags & SPECIALTAGS) {
++		/* the overlay app answers to dwm's own geometry: answering the client request
++		   here is what let firefox resize itself out of the inset. A popup of the
++		   overlay (file chooser, print dialog) is not the overlay: it sizes itself as
++		   it lays out, so it keeps the normal floating path. */
++		if (overlayhead(c)) {
 +			configure(c);
 +			XSync(dpy, False);
 +			return;
@@ -14,7 +16,7 @@
  		if (ev->value_mask & CWBorderWidth)
  			c->bw = ev->border_width;
  		else if (c->isfloating || !selmon->lt[selmon->sellt]->arrange) {
-@@ -1067,6 +1074,7 @@
+@@ -1067,6 +1076,7 @@
  	c->x = MAX(c->x, c->mon->wx);
  	c->y = MAX(c->y, c->mon->wy);
  	c->bw = borderpx;
@@ -22,13 +24,14 @@
  
  	wc.border_width = c->bw;
  	XConfigureWindow(dpy, w, CWBorderWidth, &wc);
-@@ -1090,8 +1098,17 @@
+@@ -1090,8 +1100,18 @@
  	if (c->mon == selmon)
  		unfocus(selmon->sel, 0);
  	c->mon->sel = c;
 +	/* float and place the overlay before arrange(): arrange must not count it as a
-+	   window to tile, otherwise the lone tiled window is sized around a phantom slot */
-+	if (c->tags & SPECIALTAGS) {
++	   window to tile, otherwise the lone tiled window is sized around a phantom slot.
++	   Only the overlay itself: a popup shares its tag but has to keep its own size. */
++	if (overlayhead(c)) {
 +		c->isfloating = 1;
 +		c->bw = 0;
 +		centerspecial(c, c->mon);
@@ -40,7 +43,7 @@
  	focus(NULL);
  	updateclientlist();
  }
-@@ -1253,6 +1270,8 @@
+@@ -1253,6 +1273,8 @@
  			drawbars();
  			break;
  		}
@@ -49,11 +52,12 @@
  		if (ev->atom == XA_WM_NAME || ev->atom == netatom[NetWMName]) {
  			updatetitle(c);
  			if (c == c->mon->sel)
-@@ -1844,6 +1863,7 @@
+@@ -1842,6 +1864,8 @@
+ 		XSetErrorHandler(xerror);
+ 		XUngrabServer(dpy);
  	}
++	/* before free(c): the window that just died is the one overlaycleanup unregisters */
++	overlaycleanup(m, c);
  	free(c);
  	focus(NULL);
-+	overlaycleanup(m);
  	updateclientlist();
- 	arrange(m);
- }
