@@ -9,7 +9,8 @@ long-lived TLS WebSocket inside taffybar, zero subprocesses, zero polls while id
 
 - pomotask only; `polypomo` and its `streamingCommand` stay untouched.
 - click 1 = stop timer, click 3 = open the rofi launcher, scroll = shift elapsed ±60 s.
-- primary bar only, widget hidden when no timer is running.
+- both bars (the first cut was primary-only, changed on request), widget hidden when no
+  timer is running — one shared connection, see task 4a.
 - new Haskell deps in the dyre ghc env are OK (user runs `rebuild-default`; I cannot activate).
 - show the running habit/task title (cached `GET /api/habits`).
 
@@ -60,7 +61,7 @@ GTK-free `Client.hs` (same source text; the widget, `PomoGui` and `pomoRender` a
 name and stubbed), so the tested code is the shipped code and the build takes seconds
 instead of linking all of gi-gtk. Re-run extract.py after editing the client section.
 
-- [x] 54 checks, all passing: 7-bit/16-bit/64-bit lengths, coalesced frames, truncated
+- [x] 60 checks, all passing: 7-bit/16-bit/64-bit lengths, coalesced frames, truncated
       header and body, masked decode, masked encode, continuation glue, all render cases,
       the `null` clears vs absent keeps merge rule, both outbound payloads.
 - [x] Live against `ug.kyrgyzstan.kg`: `timer:sync` received and parsed, `ping` →
@@ -83,10 +84,13 @@ at byte 2 instead of after the extended-length field, and the stopwatch printed 
 instead of the agreed `mm:ss`. A fifth gap came from reading the plan back: `pomoConnect`
 forced TLS, so the `http://` testing override was dead.
 
-Harness files, all in `/tmp/pomo` (not committed): `extract.py` (slices `Client.hs`),
-`Main.hs` (the checks), `fake-ws.js` (the second websocket implementation), `Tls.hs`.
+Harness files, all in `/tmp/pomo` (not committed, and `/tmp` is wiped on reboot — the set
+is small enough to regenerate from this file): `extract.py` (slices `Client.hs`),
+`Main.hs` (the checks), `fake-ws.js` (the second websocket implementation).
 Run: `python3 extract.py && ghc -threaded Main.hs Client.hs -o client-test`, then start
-`node fake-ws.js` and `./client-test`.
+`node fake-ws.js` and `./client-test`. The ghc env store path is deterministic but does get
+GC'd after a rebuild — resolve it with `nix build --impure --no-link --print-out-paths
+.#nixosConfigurations.mysystem.config.modules.taffybar.ghcEnv` (which is what `build.sh` does).
 
 ### 4. The widget in `taffybar.hs`
 
@@ -101,14 +105,35 @@ Run: `python3 extract.py && ghc -threaded Main.hs Client.hs -o client-test`, the
 - [x] Buttons: 1 → `{"type":"timer:stop"}` when running; 3 → spawn
       `~/.config/rofi/launchers/colorful/pomotask.sh`; scroll up/down → send a **full**
       `timer:update` snapshot with `elapsedBefore` shifted ±60 s (partial updates leave the
-      snapshot mergeable but ambiguous).
+      snapshot mergeable but ambiguous). Both bars carry the same handlers.
 - [x] Habit titles fetched lazily on an unknown `activeHabitId`, TTL 600 s, off the GUI thread.
 - [x] Missing key file / unparseable key → no thread started, widget stays hidden, one
       stderr line. The bar must never spin or crash-loop on a bad config.
-- [x] Replace the stale "deliberately no pomotask widget" comment block; add `pomotaskWidget`
-      to `primaryBarConfig.endWidgets` only.
+- [x] Replace the stale "deliberately no pomotask widget" comment block; wire `pomotaskWidget`.
+      Layout as it now stands: `centerWidgets = [pomotaskWidget, clockWidget]` on both bars
+      (the center calendar, `gcalWidget` → `taffybar_gcal.sh` → "No current event", is gone,
+      definition deleted, script left in `configs/waybar/`), and the primary keeps polypomo,
+      weather, mic and the audio slider on the right. The center group collapses to just the
+      clock while no timer runs, since the module hides itself when idle.
 - [x] `POMOTASK_BASE` / `POMOTASK_KEY_FILE` env overrides, matching the rofi backend, so the
       widget can be pointed at a local server for testing.
+
+### 4a. Both monitors
+
+`pomotaskWidget` is now in `secondaryBarConfig.endWidgets` too, but a second call
+must not mean a second socket: two connections would double the traffic and let the
+two labels disagree for a frame about a stop one of them just sent. So:
+
+- `pomoShared` (a `NOINLINE` `unsafePerformIO` CAF, same pattern as `processGroups`)
+  holds the one `PomoVar` + `PomoRefs`, reads the key file once, and forks the
+  supervisor once.
+- `prGuis :: IORef [PomoGui]` in `PomoRefs` is the widget registry; `pomoRender`
+  iterates it under a single `postGUIASync`, keeping one `prShown` cache for both bars.
+- `pomoAttach` is the join-late path: a widget registered after the connection started
+  is filled in from the current state directly, because `pomoRender` skips work when the
+  text has not changed and an empty second-monitor label would otherwise stay empty until
+  the next title change.
+- `pomoStep` / `pomoConnected` / `pomoSupervisor` lost their `PomoGui` argument.
 
 ### 5. Compile + deploy verification
 

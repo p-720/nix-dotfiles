@@ -115,8 +115,8 @@ primaryBarConfig =
   baseBarConfig
     { barCssClasses = ["primary"],
       startWidgets = [workspacesWidget Nothing, inhibitorWidget, memoryWidget],
-      centerWidgets = [gcalWidget, clockWidget],
-      endWidgets = [audioSliderWidget, micSliderWidget, weatherWidget, pomotaskWidget, polypomoWidget]
+      centerWidgets = [pomotaskWidget, clockWidget],
+      endWidgets = [audioSliderWidget, micSliderWidget, weatherWidget, polypomoWidget]
     }
 
 secondaryBarConfig :: SimpleTaffyConfig
@@ -124,7 +124,7 @@ secondaryBarConfig =
   baseBarConfig
     { barCssClasses = ["secondary"],
       startWidgets = [workspacesWidget (Just (\ws -> maybe False (\n -> n >= 6 && n < 12) (workspaceNumericId (workspaceIdentity ws)))), inhibitorWidget, memoryWidget, diskWidget],
-      centerWidgets = [gcalWidget, clockWidget],
+      centerWidgets = [pomotaskWidget, clockWidget],
       endWidgets = [trayWidget, audioSliderWidget, micSliderWidget]
     }
 
@@ -550,15 +550,6 @@ clockWidget =
       { clockFormatString = "%a, %d %b %H:%M"
       }
     >>= moduleWrap "clock"
-
-gcalWidget :: TaffyIO Gtk.Widget
-gcalWidget =
-  commandRunnerNew
-    300
-    "bash"
-    ["-c", "/etc/nixos/configs/waybar/taffybar_gcal.sh"]
-    "No current event"
-    >>= moduleWrap "gcal"
 
 weatherWidget :: TaffyIO Gtk.Widget
 weatherWidget =
@@ -1073,7 +1064,8 @@ data PomoRefs = PomoRefs
     prShown :: IORef T.Text,
     prLastPing :: IORef Int,
     prLastMsg :: IORef Int,
-    prFetchGate :: MVar ()
+    prFetchGate :: MVar (),
+    prGuis :: IORef [PomoGui]
   }
 
 pomoTickMs, pomoPingMs, pomoSilenceMs, pomoRetryMs, pomoMaxBackoffMs, pomoTitleRetryMs :: Int
@@ -1090,11 +1082,37 @@ pomoRetryMs = 2000
 pomoMaxBackoffMs = 30000
 pomoTitleRetryMs = 60000
 
+-- One connection and one timer state for the whole bar process, shared by every
+-- monitor's widget: a socket per widget would double the traffic and let the two
+-- labels disagree for a frame about a stop one of them just sent. unsafePerformIO
+-- so it exists as a CAF before any widget asks, same pattern as processGroups.
+{-# NOINLINE pomoShared #-}
+pomoShared :: Maybe (PomoVar, PomoRefs)
+pomoShared = unsafePerformIO $ do
+  conf <- pomotaskConfig
+  case conf of
+    Nothing -> pure Nothing
+    Just env -> do
+      now <- pomoNowMs
+      refs <-
+        PomoRefs
+          <$> newIORef emptyPomoTimer
+          <*> newIORef M.empty
+          <*> newIORef now
+          <*> newIORef T.empty
+          <*> newIORef now
+          <*> newIORef now
+          <*> newMVar ()
+          <*> newIORef []
+      -- started here rather than per widget: this action is what makes it once
+      void $ forkIO (pomoSupervisor env refs)
+      pure (Just (env, refs))
+
 -- Only ever called from the one socket loop thread, so the shown-text cache is
 -- race-free; it is what stops a per-second tick from asking GTK to resize the
--- bar for a string that did not change.
-pomoRender :: PomoGui -> PomoRefs -> IO ()
-pomoRender gui refs = do
+-- bars for a string that did not change.
+pomoRender :: PomoRefs -> IO ()
+pomoRender refs = do
   st <- readIORef (prTimer refs)
   titles <- readIORef (prTitles refs)
   now <- pomoNowMs
@@ -1102,10 +1120,27 @@ pomoRender gui refs = do
   shown <- readIORef (prShown refs)
   when (txt /= shown) $ do
     writeIORef (prShown refs) txt
-    postGUIASync $ do
-      Gtk.labelSetText (pgLabel gui) txt
-      Gtk.widgetSetVisible (pgBox gui) (not (T.null (T.strip txt)))
-      Gtk.widgetQueueResize (pgBox gui)
+    guis <- readIORef (prGuis refs)
+    postGUIASync (mapM_ (applyPomoText txt) guis)
+
+-- Must run on the GUI thread: pomoRender reaches it through postGUIASync,
+-- pomotaskWidget calls it directly because widget construction is already there.
+applyPomoText :: T.Text -> PomoGui -> IO ()
+applyPomoText txt gui = do
+  Gtk.labelSetText (pgLabel gui) txt
+  Gtk.widgetSetVisible (pgBox gui) (not (T.null (T.strip txt)))
+  Gtk.widgetQueueResize (pgBox gui)
+
+pomoAttach :: PomoGui -> PomoRefs -> IO ()
+pomoAttach gui refs = do
+  st <- readIORef (prTimer refs)
+  titles <- readIORef (prTitles refs)
+  now <- pomoNowMs
+  modifyIORef' (prGuis refs) (gui :)
+  -- a widget registered after the connection started has to be filled in at
+  -- once: pomoRender skips work when the text has not changed, so an empty
+  -- second-monitor label would stay empty until the next title change
+  applyPomoText (renderPomo st titles now) gui
 
 pomoTitlesNeeded :: PomoTimer -> M.Map Int T.Text -> Bool
 pomoTitlesNeeded s titles = case pomoHabitId s of
@@ -1194,8 +1229,8 @@ pomoWaitMs st refs = do
             ] ++ [pomoTickMs | pomoRunning st]
   pure (max 1 (minimum candidates))
 
-pomoStep :: PomoVar -> PomoGui -> PomoRefs -> PomoConn -> IO ()
-pomoStep env gui refs pc = do
+pomoStep :: PomoVar -> PomoRefs -> PomoConn -> IO ()
+pomoStep env refs pc = do
   st <- readIORef (prTimer refs)
   buffered <- (not . BS.null) <$> readIORef (pcBuf pc)
   got <-
@@ -1216,30 +1251,30 @@ pomoStep env gui refs pc = do
     lastMsg <- readIORef (prLastMsg refs)
     when (now - lastMsg >= pomoSilenceMs) $
       ioError (userError "pomotask: no server traffic, reconnecting")
-  pomoRender gui refs
+  pomoRender refs
 
-pomoConnected :: PomoVar -> PomoGui -> PomoRefs -> PomoConn -> IO ()
-pomoConnected env gui refs pc = do
+pomoConnected :: PomoVar -> PomoRefs -> PomoConn -> IO ()
+pomoConnected env refs pc = do
   now <- pomoNowMs
   writeIORef (prLastMsg refs) now
   writeIORef (prLastPing refs) now
   pomoFetchTitles env refs True
-  pomoRender gui refs
-  forever (pomoStep env gui refs pc)
+  pomoRender refs
+  forever (pomoStep env refs pc)
 
 -- Any exception ends the connection: the read path turns EOF into an error,
 -- framing corruption throws from the TLS layer, and a half-open socket is
 -- detected by pomoWaitMs going silent. Every reconnect re-syncs the timer from
 -- the server's timer:sync, so a lost frame can never leave the label wrong.
-pomoSupervisor :: PomoVar -> PomoGui -> PomoRefs -> IO ()
-pomoSupervisor env gui refs = pomoLoop pomoRetryMs
+pomoSupervisor :: PomoVar -> PomoRefs -> IO ()
+pomoSupervisor env refs = pomoLoop pomoRetryMs
   where
     pomoLoop backoffMs = do
       openedAt <- pomoNowMs
       outcome <-
         try
           ( pomoOpenWs (pvCtx env) (pvEndpoint env) (pvKey env)
-              >>= pomoConnected env gui refs
+              >>= pomoConnected env refs
           ) ::
           IO (Either SomeException ())
       case outcome of
@@ -1303,21 +1338,14 @@ pomotaskWidget = do
     Gtk.containerAdd box inner
     Gtk.widgetShowAll box
     Gtk.widgetSetVisible box False
-  conf <- liftIO pomotaskConfig
-  case conf of
+  -- referenced from both bar configs; pomoShared does the key-file read, the
+  -- connection and the supervisor thread once, so the second monitor costs a
+  -- label and a handler
+  case pomoShared of
     Nothing -> Gtk.toWidget box
-    Just env -> do
+    Just (env, refs) -> do
       gui <- liftIO $ PomoGui <$> Gtk.toWidget box <*> pure label
-      refs <- liftIO $ do
-        now <- pomoNowMs
-        PomoRefs
-          <$> newIORef emptyPomoTimer
-          <*> newIORef M.empty
-          <*> newIORef now
-          <*> newIORef T.empty
-          <*> newIORef now
-          <*> newIORef now
-          <*> newMVar ()
+      liftIO $ pomoAttach gui refs
       liftIO $ do
         -- deliberately no addWorkspaceScroll: scroll adjusts the timer, and
         -- the first handler installed on the box would win the event and turn
@@ -1336,7 +1364,6 @@ pomotaskWidget = do
             3 -> void $ forkIO (void (spawnCommand pomotaskLauncher) :: IO ())
             _ -> pure ()
           pure True
-        void $ forkIO (pomoSupervisor env gui refs)
       Gtk.toWidget box
 
 -- polypomo stays as it is: a local pomodoro with its own sqlite history and

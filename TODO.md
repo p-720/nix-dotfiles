@@ -9,17 +9,22 @@ Make taffybar look like waybar and carry the same modules that have taffybar equ
 ### 1. Taffybar module layout
 
 - [x] Rewrite `modules/nixos/taffybar/taffybar.hs` with per-monitor configs.
-- [x] Primary monitor (LG): workspaces, idle inhibitor, memory / gcal, clock / pomotask, polypomo, weather, pulseaudio.
-- [x] Secondary monitor (AOC): workspaces, idle inhibitor, memory, disk / gcal, clock / pomotask, pulseaudio, tray.
+- [x] Primary monitor (LG): workspaces, idle inhibitor, memory / pomotask, clock / audio
+      slider, mic, weather, polypomo.
+- [x] Secondary monitor (AOC): workspaces, idle inhibitor, memory, disk / pomotask, clock /
+      tray, audio slider, mic.
 - [x] Remove the static "DONT FORGET TO START THE EMACS TIMER" label.
 - [x] Skip waybar modules with no taffybar widget: submap, Hyprland language, pulseaudio slider.
 
 ### 2. Port custom modules
 
 - [x] Add an adapter script that runs `waybar_gcal.sh` and emits Pango markup with waybar's now/none colors.
-- [x] PomoTask as a native Haskell widget (one TLS WebSocket in taffybar, no subprocess, no
-      idle polling): click 1 stops, click 3 opens the rofi picker, scroll shifts ±60 s.
-      See `TODO-taffybar-pomotask.md`. Replaces the `polybar-pomotask.py` streaming label.
+      No longer wired: the center slot now holds the timer, so `gcalWidget` and
+      `configs/waybar/taffybar_gcal.sh` are unused (still in git if it comes back).
+- [x] PomoTask as a native Haskell widget (one TLS WebSocket in taffybar, shared by both
+      bars, no subprocess, no idle polling): click 1 stops, click 3 opens the rofi picker,
+      scroll shifts ±60 s. See `TODO-taffybar-pomotask.md`. Replaces the
+      `polybar-pomotask.py` streaming label.
 - [x] Wrap polypomo in a streaming label; left click toggles, right ends, middle/scroll adjust time.
 - [x] Use the built-in wttr.in widget with waybar's Moscow format and a 10 minute interval.
 

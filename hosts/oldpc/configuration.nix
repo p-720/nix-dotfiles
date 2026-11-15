@@ -69,6 +69,7 @@
   hardware.nvidia = {
     modesetting.enable = true;
     nvidiaSettings = true;
+    # forceFullCompositionPipeline = true;
     # package = pkgs.unstable.linuxKernel.packages.linux_zen.nvidia_x11;
     powerManagement = {
       enable = false;
@@ -78,6 +79,13 @@
     open = true;
   };
 
+services.earlyoom = {
+    freeMemThreshold = 6;
+    freeSwapThreshold = 6;
+
+    freeMemKillThreshold = 1; 
+
+  };
 
   services.xserver = {
     enable = true;
@@ -90,6 +98,9 @@
       options = "grp:alt_shift_toggle,compose:ralt";
     };
     # software 2D: no glamor, no NVIDIA X driver
+    screenSection = ''
+  Option "metamodes" "DP-6: nvidia-auto-select +0+0 {ForceFullCompositionPipeline=On}, HDMI-1: nvidia-auto-select +2560+0 {ForceFullCompositionPipeline=On}"
+  '';
     deviceSection = ''
       Option "AccelMethod" "none"
       Option "BackingStore" "false"

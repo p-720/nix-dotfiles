@@ -175,13 +175,15 @@
     enableNotifications = true;    
 
     # Trigger when free RAM drops below 6% AND free Swap drops below 6%
-    freeMemThreshold = 2;
-    freeSwapThreshold = 2;
-    extraArgs = [ "--ignore" "^(strata.*|node-MainThread|t3.*)$" ];
-    
+    # freeMemThreshold = 2;
+    # freeSwapThreshold = 2;
+
     # Tell earlyoom to send SIGKILL instantly when under 2% RAM 
     # to completely bypass system lockups.
-    freeMemKillThreshold = 1; 
+    # freeMemKillThreshold = 1; 
+
+    extraArgs = [ "--ignore" "^(strata.*|node-MainThread|t3.*)$" ];
+    
 
     # Highly Recommended: Prevent it from accidentally killing your desktop environment
     # extraArgs = [

@@ -234,9 +234,18 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
       Option "SuspendTime" "1"
       Option "OffTime" "1"
     '';
-    #  deviceSection = ''
-    #      Option          "TearFree" "true"
+
+     # deviceSection = ''
+     #     Option          "TearFree" "true"
     # '';
+    services.earlyoom = {
+      freeMemThreshold = 2;
+      freeSwapThreshold = 2;
+
+      freeMemKillThreshold = 1; 
+
+    };
+
     exportConfiguration = true;
     # replaced by xmonad (modules.xmonad below)
     windowManager.i3.enable = false;
