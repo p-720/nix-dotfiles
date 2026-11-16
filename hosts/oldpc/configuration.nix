@@ -267,6 +267,7 @@ services.earlyoom = {
       gnome-system-monitor
       kdePackages.kdenlive
       libusb1
+      blender
       ffmpeg
       t3-code
       peco

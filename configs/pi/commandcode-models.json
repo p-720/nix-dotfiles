@@ -418,6 +418,14 @@
       "maxTokens": 65536
     },
     {
+      "id": "Qwen/Qwen4-Max",
+      "name": "Qwen 4 Max (CC)",
+      "api": "openai-responses",
+      "reasoning": false,
+      "contextWindow": 1000000,
+      "maxTokens": 65536
+    },
+    {
       "id": "Qwen/Qwen3.8-Omni-Flash",
       "name": "Qwen 3.8 Omni Flash (CC)",
       "api": "openai-responses",
@@ -543,6 +551,14 @@
       "api": "openai-responses",
       "reasoning": true,
       "contextWindow": 262144,
+      "maxTokens": 65536
+    },
+    {
+      "id": "tencent/hy4-flash",
+      "name": "Tencent Hy4 Flash (CC)",
+      "api": "openai-responses",
+      "reasoning": false,
+      "contextWindow": 1024000,
       "maxTokens": 65536
     },
     {
