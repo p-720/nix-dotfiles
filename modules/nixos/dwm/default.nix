@@ -57,7 +57,6 @@ in {
           --timer 180 '${pkgs.xorg.xset}/bin/xset dpms force off' '${pkgs.xorg.xset}/bin/xset dpms force on'; sleep 2; done) &
         # same explicit layout switch i3 used; fcitx5 can otherwise leave it stale
         ${pkgs.xorg.setxkbmap}/bin/setxkbmap us,ru -option 'grp:alt_shift_toggle'
-        ${pkgs.dunst}/bin/dunst &
         ${pkgs.gammastep}/bin/gammastep -c /home/andrew/.config/gammastep.conf &
         # output names differ between nvidia and modesetting; find them by mode
         left=""
@@ -96,7 +95,6 @@ in {
     };
 
     environment.systemPackages = with pkgs; [
-      dunst
       feh
       gammastep
       i3lock

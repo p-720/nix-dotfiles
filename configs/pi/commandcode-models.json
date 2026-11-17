@@ -682,6 +682,14 @@
       "maxTokens": 65536
     },
     {
+      "id": "recursive/flint-v1.0:free",
+      "name": "Flint (CC)",
+      "api": "openai-responses",
+      "reasoning": false,
+      "contextWindow": 262144,
+      "maxTokens": 65536
+    },
+    {
       "id": "stealth/glyph-cluster:free",
       "name": "Glyph Cluster (CC)",
       "api": "openai-responses",
