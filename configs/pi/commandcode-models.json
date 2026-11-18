@@ -106,6 +106,22 @@
       "maxTokens": 65536
     },
     {
+      "id": "gpt-6.2-astra",
+      "name": "GPT-6.2 Astra (CC)",
+      "api": "openai-responses",
+      "reasoning": false,
+      "contextWindow": 1050000,
+      "maxTokens": 65536
+    },
+    {
+      "id": "gpt-6.2-sol",
+      "name": "GPT-6.2 Sol (CC)",
+      "api": "openai-responses",
+      "reasoning": false,
+      "contextWindow": 1050000,
+      "maxTokens": 65536
+    },
+    {
       "id": "gpt-6.1-sol",
       "name": "GPT-6.1 Sol (CC)",
       "api": "openai-responses",
@@ -554,9 +570,17 @@
       "maxTokens": 65536
     },
     {
+      "id": "tencent/hy4",
+      "name": "Tencent Hy4 (CC)",
+      "api": "openai-completions",
+      "reasoning": false,
+      "contextWindow": 1024000,
+      "maxTokens": 65536
+    },
+    {
       "id": "tencent/hy4-flash",
       "name": "Tencent Hy4 Flash (CC)",
-      "api": "openai-responses",
+      "api": "openai-completions",
       "reasoning": false,
       "contextWindow": 1024000,
       "maxTokens": 65536
