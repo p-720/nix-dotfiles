@@ -602,6 +602,14 @@
       "maxTokens": 65536
     },
     {
+      "id": "google/gemini-4-neon",
+      "name": "Gemini 4 Neon (CC)",
+      "api": "openai-responses",
+      "reasoning": false,
+      "contextWindow": 1000000,
+      "maxTokens": 65536
+    },
+    {
       "id": "google/gemini-4-argon",
       "name": "Gemini 4 Argon (CC)",
       "api": "openai-responses",

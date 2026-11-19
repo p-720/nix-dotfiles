@@ -1090,7 +1090,7 @@ movedir(const Arg *arg)
 /* helper for spawning shell commands */
 #define SHCMD(cmd) { .v = (const char*[]){ "/bin/sh", "-c", cmd, NULL } }
 
-static const char *termcmd[]   = { "foot", NULL };
+static const char *termcmd[]   = { "alacritty", NULL };
 static const char *filemgr[]   = { "nautilus", NULL };
 static char dmenumon[2] = "0";
 static const char *dmenucmd[]  = { "sh", "-c", "$HOME/.config/rofi/launchers/colorful/launcher.sh \"$1\"", "sh", dmenumon, NULL };
