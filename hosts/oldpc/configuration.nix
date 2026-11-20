@@ -349,6 +349,9 @@ services.earlyoom = {
     ];
   services.openssh.enable = true;
   services.openssh.startWhenNeeded = false;
+  modules.mihomo = {
+    configFile = pkgs.lib.mkForce "/home/${config.user}/Dropbox/mihomo/config_oldpc.yaml";
+  };
 
   networking.firewall.enable = false;
   system.stateVersion = "25.11"; # Did you read the comment?
