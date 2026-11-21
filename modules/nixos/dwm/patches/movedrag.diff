@@ -1,0 +1,13 @@
+--- a/dwm.c
++++ b/dwm.c
+@@ -1291,7 +1291,9 @@
+ 			&& (abs(nx - c->x) > snap || abs(ny - c->y) > snap))
+ 				togglefloating(NULL);
+ 			if (!selmon->lt[selmon->sellt]->arrange || c->isfloating)
+-				resize(c, nx, ny, c->w, c->h, 1);
++				/* a drag is a move, not a resize: resize() re-applies the client's
++				 * WM size hints and snaps a floating window to a different size */
++				resizeclient(c, nx, ny, c->w, c->h);
+ 			break;
+ 		}
+ 	} while (ev.type != ButtonRelease);

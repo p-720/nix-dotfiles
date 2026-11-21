@@ -25,6 +25,7 @@ let
       ./patches/classcache.diff
       # last: its context lines only exist after anybar rewrites bh/updategeom
       ./patches/permonitorstart.diff
+      ./patches/movedrag.diff
     ];
   };
 in {

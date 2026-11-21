@@ -706,14 +706,6 @@
       "maxTokens": 65536
     },
     {
-      "id": "thinkingmachines/inkling-2-small:free",
-      "name": "Inkling 2 Small (CC)",
-      "api": "openai-completions",
-      "reasoning": false,
-      "contextWindow": 1048576,
-      "maxTokens": 65536
-    },
-    {
       "id": "recursive/flint-v1.0:free",
       "name": "Flint (CC)",
       "api": "openai-responses",
