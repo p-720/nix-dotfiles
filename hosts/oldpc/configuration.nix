@@ -31,13 +31,6 @@
   # hardware.opengl.driSupport = true;
   # hardware.opengl.extraPackages = with pkgs; [ intel-vaapi-driver libva-vdpau-driver libvdpau-va-gl];
   # hardware.opengl.extraPackages32 = with pkgs.pkgsi686Linux; [ intel-vaapi-driver ];
-  services = {
-    cron = {
-      systemCronJobs = [
-        "00 21 * * * root /etc/nixos/shutdown.sh"
-      ];
-    };
-  };
 
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
@@ -206,6 +199,7 @@ services.earlyoom = {
     cron = {
       enable = true;
       systemCronJobs = [
+        "00 21 * * * root /etc/nixos/shutdown.sh"
         # "00 20 * * * andrew fish -c 'sync_repos'"
       ];
     };
