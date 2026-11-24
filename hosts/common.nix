@@ -135,7 +135,7 @@
     #   user = config.user;
     # };
   };
-  modules.hypr.enable = false;
+  modules.hypr.enable = true;
   modules.dwm.enable = true;
 
   security.sudo = {
