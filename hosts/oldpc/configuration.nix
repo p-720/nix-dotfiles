@@ -44,7 +44,7 @@
   # TODO just use self.user 
   user = self.user;
 
-  boot.tmpOnTmpfs = false;
+  boot.tmp.useTmpfs = false;
   boot.tmp.cleanOnBoot = true;
 
   # TODO boot.loader.grub.device = "/dev/sda";
@@ -280,6 +280,7 @@ services.earlyoom = {
       pkgs.onlyoffice-desktopeditors
       claude-code
       stremio-linux-shell
+      my.nuvio
       anki-bin
       tldr
       # (pkgs.wrapOBS.override {

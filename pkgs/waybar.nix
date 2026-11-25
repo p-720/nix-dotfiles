@@ -94,8 +94,10 @@ stdenv.mkDerivation (finalAttrs: {
   src = fetchFromGitHub {
     owner = "Alexays";
     repo = "Waybar";
-    rev = "master";
-    hash = "sha256-mBDWjeeIuFfDZQuBxHu+EpbJ+GMbbSxpRz0WVM2N+ZI=";
+    # Pinned instead of tracking master: a moving ref with a fixed hash
+    # breaks the build whenever upstream advances.
+    rev = "7b0bf93a3859f783581dcc5f27b9cb4aecd8d385";
+    hash = "sha256-v2INBzuULAA+FBY33z/UftEuFmK1GVxbXsUsBfZ7n5g=";
   };
 
   postUnpack = lib.optional cavaSupport ''

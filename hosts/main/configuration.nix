@@ -208,6 +208,14 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
     };
   };
 
+  # was nested inside services.xserver below, which 26.05 no longer accepts
+  # (services.xserver.services is gone) and which made the whole host fail to eval
+  services.earlyoom = {
+    freeMemThreshold = 2;
+    freeSwapThreshold = 2;
+    freeMemKillThreshold = 1;
+  };
+
   services.xserver = {
     enable = true;
     # NVIDIA DDX is required for reliable secondary-CRTC scanout;
@@ -238,14 +246,6 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
      # deviceSection = ''
      #     Option          "TearFree" "true"
     # '';
-    services.earlyoom = {
-      freeMemThreshold = 2;
-      freeSwapThreshold = 2;
-
-      freeMemKillThreshold = 1; 
-
-    };
-
     exportConfiguration = true;
     # replaced by xmonad (modules.xmonad below)
     windowManager.i3.enable = false;

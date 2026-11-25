@@ -102,7 +102,7 @@
   # TODO just use self.user 
   user = self.user;
 
-  # boot.tmpOnTmpfs = true;
+  # boot.tmp.useTmpfs = true;
   boot.tmp.cleanOnBoot = true;
 
   # TODO boot.loader.grub.device = "/dev/sda";

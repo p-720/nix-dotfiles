@@ -38,13 +38,16 @@ in {
           #   ];
           # }))
 
-          (pkgs.my.hypr-darkwindow.overrideAttrs(oldAttrs: rec {
-            patches = [
-              /etc/nixos/modules/nixos/hypr/eldata.patch
-              # /etc/nixos/modules/nixos/hypr/noblur.patch
-              # /etc/nixos/modules/nixos/hypr/tearing.patch
-            ];
-          }))
+          # eldata.patch is upstream since v0.56 (m_passElements holds values,
+          # not pointers) -> patching would just fail to apply.
+          pkgs.my.hypr-darkwindow
+          # (pkgs.my.hypr-darkwindow.overrideAttrs(oldAttrs: rec {
+          #   patches = [
+          #     /etc/nixos/modules/nixos/hypr/eldata.patch
+          #     # /etc/nixos/modules/nixos/hypr/noblur.patch
+          #     # /etc/nixos/modules/nixos/hypr/tearing.patch
+          #   ];
+          # }))
  
           # pkgs.my.hypr-darkwindow
           # inputs.hypr-darkwindow.packages.x86_64-linux.Hypr-DarkWindow

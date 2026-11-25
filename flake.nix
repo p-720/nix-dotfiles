@@ -164,9 +164,23 @@
         poetry2nix.overlays.default
         spl3g-config.overlays.additions
         inputs.claude-desktop-nix-flake.overlays.default
-        hyprland.overlays.hyprland
+        # hyprland.overlays.hyprland
+        # hyprland.overlays.hyprland-packages
         inputs.taffybar.overlays.default
-        hyprland.overlays.hyprland-packages
+        # The hyprland flake overlays rebuild hyprlang/hyprutils/hyprgraphics/
+        # hyprwayland-scanner with gcc16Stdenv + Nov-2026 sources; anything in
+        # 26.05 that links them (hypridle: undefined
+        # std::__cow_string@GLIBCXX_3.4.35, hyprlock: CCWlSeat API) then fails.
+        # So the whole hypr app stack comes from nixos-unstable, one gcc, one
+        # libstdc++, all prebuilt in the public cache. The hyprland input above
+        # is kept as a fallback for when 26.05 ships gcc16 (swap the overlays
+        # back in and drop this one).
+        (final: prev: {
+          hyprland = final.unstable.hyprland;
+          hypridle = final.unstable.hypridle;
+          hyprlock = final.unstable.hyprlock;
+          xdg-desktop-portal-hyprland = final.unstable.xdg-desktop-portal-hyprland;
+        })
       ];
     in {
       inherit lib;

@@ -39,13 +39,15 @@ let
 in
 mkHyprlandPlugin (finalAttrs: {
   pluginName = "hypr-darkwindow";
-  version = "0.55.0";
+  # keep in step with the hyprland the plugin is built against: it pokes at
+  # internal headers, so a mismatch is a compile error, not a runtime warning
+  version = "0.56.2";
 
   src = fetchFromGitHub {
     owner = "micha4w";
     repo = "Hypr-DarkWindow";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-UQEPjJu4kYBzwMp8SPf+O48l3UyPDFmOjKDKh+X273I=";
+    hash = "sha256-2upGTy7IRhrhxf+5VPjzrua8ebOtED6i8kSN8ka+ffg=";
   };
 
   installPhase = ''
