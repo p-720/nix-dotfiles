@@ -1,15 +1,15 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 import Control.Concurrent (forkIO, threadDelay)
-import Control.Concurrent.MVar (MVar, modifyMVar_, newMVar, readMVar, swapMVar, tryPutMVar, tryTakeMVar, withMVar)
-import Control.Concurrent.STM (atomically, newBroadcastTChanIO, writeTChan)
+import Control.Concurrent.MVar (MVar, modifyMVar_, newEmptyMVar, newMVar, readMVar, swapMVar, tryPutMVar, tryReadMVar, tryTakeMVar, withMVar)
+import Control.Concurrent.STM (atomically, newBroadcastTChanIO, readTChan, writeTChan)
 import Control.Concurrent.STM.TChan (TChan)
 import Control.Exception (IOException, SomeException, bracket, catch, finally, try)
 import Control.Exception.Enclosed (catchAny)
 import Control.Monad (foldM, forM_, forever, replicateM, unless, void, when)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Trans.Reader (ask)
-import Data.Aeson (Object, Value (..), eitherDecode, encode, object, (.=))
+import Control.Monad.Trans.Reader (ask, asks, runReaderT)
+import Data.Aeson (FromJSON (..), Object, Value (..), eitherDecode, encode, object, (.=), (.:), (.:?), withObject)
 import qualified Data.Aeson.Key as AK
 import qualified Data.Aeson.KeyMap as KM
 import Data.Bits (shiftR, testBit, xor, (.&.), (.|.))
@@ -23,8 +23,8 @@ import Data.Default (def)
 import Data.Foldable (toList)
 import Data.GI.Base (unsafeCastTo)
 import Data.IORef (IORef, modifyIORef', newIORef, readIORef, writeIORef)
-import Data.List (dropWhileEnd, isPrefixOf, stripPrefix)
-import Data.Maybe (fromMaybe)
+import Data.List (dropWhileEnd, find, isPrefixOf, stripPrefix)
+import Data.Maybe (fromMaybe, listToMaybe)
 import Data.Time.Clock.POSIX (getPOSIXTime)
 import Data.Word (Word8)
 import qualified Data.Map.Strict as M
@@ -51,7 +51,7 @@ import System.Posix.Signals (Handler (Catch), installHandler, sigTERM, signalPro
 import System.Process
 import System.Random (randomIO)
 import System.Taffybar (dyreTaffybar, getTaffyFile)
-import System.Taffybar.Context (Context (..), TaffyIO)
+import System.Taffybar.Context (Backend (..), Context (..), TaffyIO, backend)
 import System.Taffybar.Information.Audio (AudioInfo (..), defaultAudioPulseSink, defaultAudioWirePlumberNode, getAudioInfoChanAndVar)
 import System.Taffybar.Information.WirePlumber
   ( WirePlumberInfo (..),
@@ -60,7 +60,20 @@ import System.Taffybar.Information.WirePlumber
     setWirePlumberVolume,
     toggleWirePlumberMute,
   )
+import System.Taffybar.Hyprland
+  ( getHyprlandClient,
+    getHyprlandEventChan,
+  )
 import System.Taffybar.Information.EWMHDesktopInfo (getWorkspaceNames, switchOneWorkspace, withX11Context)
+import System.Taffybar.Information.Hyprland
+  ( HyprlandClient,
+    HyprlandError,
+    hyprCommand,
+    hyprCommandJson,
+    runHyprlandCommandJson,
+    runHyprlandCommandRaw,
+    subscribeHyprlandEvents,
+  )
 import System.Taffybar.Information.Memory (MemoryInfo (..), parseMeminfo)
 import System.Taffybar.Information.X11DesktopInfo (DisplayName (..))
 import System.Taffybar.SimpleConfig
@@ -107,14 +120,16 @@ baseBarConfig =
       barPosition = Bottom,
       widgetSpacing = 8,
       monitorsAction = useAllMonitors,
-      startupHook = attachBarScroll
+      startupHook = do
+        attachBarScroll
+        startHyprlandWatchers
     }
 
 primaryBarConfig :: SimpleTaffyConfig
 primaryBarConfig =
   baseBarConfig
     { barCssClasses = ["primary"],
-      startWidgets = [workspacesWidget Nothing, inhibitorWidget, memoryWidget],
+      startWidgets = [workspacesWidget True, inhibitorWidget, memoryWidget],
       centerWidgets = [pomotaskWidget, clockWidget],
       endWidgets = [audioSliderWidget, micSliderWidget, weatherWidget, polypomoWidget]
     }
@@ -123,22 +138,248 @@ secondaryBarConfig :: SimpleTaffyConfig
 secondaryBarConfig =
   baseBarConfig
     { barCssClasses = ["secondary"],
-      startWidgets = [workspacesWidget (Just (\ws -> maybe False (\n -> n >= 6 && n < 12) (workspaceNumericId (workspaceIdentity ws)))), inhibitorWidget, memoryWidget, diskWidget],
+      startWidgets = [workspacesWidget False, inhibitorWidget, memoryWidget, diskWidget],
       centerWidgets = [pomotaskWidget, clockWidget],
       endWidgets = [trayWidget, audioSliderWidget, micSliderWidget]
     }
 
 isPrimaryMonitor :: Int -> TaffyIO Bool
-isPrimaryMonitor monitorIndex = liftIO $ do
+isPrimaryMonitor monitorIndex = do
+  hyprland <- sessionIsHyprland
+  if hyprland
+    then do
+      -- The Wayland backend implements neither the EWMH desktop properties nor
+      -- gdk_display_get_primary_monitor (GTK returns NULL there), and GDK's
+      -- monitor array is wl_output arrival order, renumbered on hotplug. The
+      -- compositor's layout x is the only stable idea of "left monitor".
+      boxes <- hyprMonitorBoxes
+      own <- liftIO (gdkMonitorBox monitorIndex)
+      case own >>= matchMonitorBox boxes of
+        Just (x, _, _, _, name) -> do
+          liftIO $ barLog ("monitor " ++ show monitorIndex ++ " -> " ++ T.unpack name ++ " x=" ++ show x)
+          pure (x == 0)
+        Nothing -> do
+          liftIO $ barLog ("monitor " ++ show monitorIndex ++ " unmatched: primary is index 0")
+          pure (monitorIndex == 0)
+    else liftIO $ do
+      maybeDisplay <- Gdk.displayGetDefault
+      case maybeDisplay of
+        Nothing -> pure (monitorIndex == 0)
+        Just display -> do
+          maybePrimary <- Gdk.displayGetPrimaryMonitor display
+          maybeMonitor <- Gdk.displayGetMonitor display (fromIntegral monitorIndex)
+          pure $ case (maybePrimary, maybeMonitor) of
+            (Just primary, Just monitor) -> primary == monitor
+            _ -> monitorIndex == 0
+
+-- Hyprland plumbing. The library picks the backend itself and swaps the
+-- workspace provider, but everything hand-written in this config was X11-only:
+-- the visibility filter, bar scroll and the primary test all read state Hyprland
+-- never exposes. All of it keys off the compositor's IPC instead.
+
+-- | Workspace name -> monitor name. The workspace widget's visibility filter is
+-- a pure function, and the Hyprland provider is process-global (first caller
+-- wins its config), so per-bar filtering has to consult state we keep ourselves.
+{-# NOINLINE wsMonitorVar #-}
+wsMonitorVar :: MVar (M.Map T.Text T.Text)
+wsMonitorVar = unsafePerformIO (newMVar M.empty)
+
+-- | Widget constructors run in IO, not TaffyIO, and the Hyprland client is only
+-- reachable from TaffyIO, so the startup hook parks it here for them. Empty
+-- until then, which is also how the X11 path is told apart from Hyprland.
+{-# NOINLINE hyprClientVar #-}
+hyprClientVar :: MVar HyprlandClient
+hyprClientVar = unsafePerformIO newEmptyMVar
+
+-- | `TAFFYBAR_LOG=1` mirrors the compositor decisions to stderr: which backend
+-- was picked, which monitor each bar matched, and every time a fallback took
+-- over. Bar-to-monitor matching is otherwise only visible as wrong pixels.
+{-# NOINLINE barLogOn #-}
+barLogOn :: Bool
+barLogOn = unsafePerformIO ((== Just "1") <$> lookupEnv "TAFFYBAR_LOG")
+
+barLog :: String -> IO ()
+barLog msg =
+  when barLogOn $ do
+    hPutStrLn stderr ("taffybar: " ++ msg)
+    hFlush stderr
+
+sessionIsHyprland :: TaffyIO Bool
+sessionIsHyprland = asks ((== BackendWayland) . backend)
+
+data HyprMonitor = HyprMonitor
+  { hmName :: T.Text,
+    hmX :: Int,
+    hmY :: Int,
+    hmW :: Int,
+    hmH :: Int
+  }
+  deriving (Show)
+
+instance FromJSON HyprMonitor where
+  parseJSON = withObject "HyprMonitor" $ \o ->
+    HyprMonitor
+      <$> o .: "name"
+      <*> o .: "x"
+      <*> o .: "y"
+      <*> o .: "width"
+      <*> o .: "height"
+
+data HyprWorkspaceRow = HyprWorkspaceRow
+  { hwName :: T.Text,
+    hwMonitor :: T.Text
+  }
+  deriving (Show)
+
+-- | monitor is absent while a workspace is being dragged between outputs; an
+-- empty string just means "not filterable yet" and falls back to the numeric split.
+instance FromJSON HyprWorkspaceRow where
+  parseJSON = withObject "HyprWorkspaceRow" $ \o -> do
+    name <- o .: "name"
+    monitor <- o .:? "monitor"
+    pure HyprWorkspaceRow {hwName = name, hwMonitor = fromMaybe "" monitor}
+
+hyprMonitorsIO :: HyprlandClient -> IO (Either HyprlandError [HyprMonitor])
+hyprMonitorsIO client = runHyprlandCommandJson client (hyprCommandJson ["monitors"])
+
+hyprWorkspacesIO :: HyprlandClient -> IO (Either HyprlandError [HyprWorkspaceRow])
+hyprWorkspacesIO client = runHyprlandCommandJson client (hyprCommandJson ["workspaces"])
+
+hyprMonitorBoxes :: TaffyIO [(Int, Int, Int, Int, T.Text)]
+hyprMonitorBoxes = do
+  client <- getHyprlandClient
+  result <- liftIO (hyprMonitorsIO client)
+  pure $ case result of
+    Right monitors -> [(hmX m, hmY m, hmW m, hmH m, hmName m) | m <- monitors]
+    Left _ -> []
+
+-- | (x, y, w, h) in compositor layout space.
+gdkMonitorBox :: Int -> IO (Maybe (Int, Int, Int, Int))
+gdkMonitorBox index = do
   maybeDisplay <- Gdk.displayGetDefault
   case maybeDisplay of
-    Nothing -> pure (monitorIndex == 0)
+    Nothing -> pure Nothing
     Just display -> do
-      maybePrimary <- Gdk.displayGetPrimaryMonitor display
-      maybeMonitor <- Gdk.displayGetMonitor display (fromIntegral monitorIndex)
-      pure $ case (maybePrimary, maybeMonitor) of
-        (Just primary, Just monitor) -> primary == monitor
-        _ -> monitorIndex == 0
+      maybeMonitor <- Gdk.displayGetMonitor display (fromIntegral index)
+      maybe (pure Nothing) monitorBox maybeMonitor
+
+monitorBox :: Gdk.Monitor -> IO (Maybe (Int, Int, Int, Int))
+monitorBox monitor = do
+  rect <- Gdk.monitorGetGeometry monitor
+  x <- GdkRectangle.getRectangleX rect
+  y <- GdkRectangle.getRectangleY rect
+  w <- GdkRectangle.getRectangleWidth rect
+  h <- GdkRectangle.getRectangleHeight rect
+  pure (Just (fromIntegral x, fromIntegral y, fromIntegral w, fromIntegral h))
+
+-- | Prefer exact position; fall back to size, since a scaled monitor reports a
+-- different origin to GTK than it does to Hyprland.
+matchMonitorBox ::
+  [(Int, Int, Int, Int, T.Text)] ->
+  (Int, Int, Int, Int) ->
+  Maybe (Int, Int, Int, Int, T.Text)
+matchMonitorBox boxes (x, y, w, h) =
+  case [b | b <- boxes, matchesPosition b] of
+    (b:_) -> Just b
+    [] -> listToMaybe [b | b <- boxes, matchesSize b]
+  where
+    matchesPosition (bx, by, _, _, _) = bx == x && by == y
+    matchesSize (_, _, bw, bh, _) = bw == w && bh == h
+
+-- | Which Hyprland monitor this widget's bar is drawn on.
+widgetMonitorName :: Gtk.Widget -> TaffyIO (Maybe T.Text)
+widgetMonitorName widget = do
+  boxes <- hyprMonitorBoxes
+  if null boxes
+    then pure Nothing
+    else do
+      own <- liftIO widgetMonitorBox
+      pure $ snd5 <$> (own >>= matchMonitorBox boxes)
+  where
+    snd5 (_, _, _, _, name) = name
+    widgetMonitorBox = do
+      maybeWindow <- Gtk.widgetGetWindow widget
+      case maybeWindow of
+        Nothing -> pure Nothing
+        Just window -> do
+          display <- Gdk.windowGetDisplay window
+          -- GTK types this non-nullable but can still hand back NULL; the
+          -- catch is what keeps a missing monitor from killing the retry loop.
+          catchAny
+            ( do
+                monitor <- Gdk.displayGetMonitorAtWindow display window
+                monitorBox monitor
+            )
+            (\_ -> pure Nothing)
+
+-- | Fill in the bar's monitor once its window exists; the widget is built before
+-- the bar window is realized, and nothing announces that it finally is.
+attachMonitorName :: Gtk.Widget -> MVar T.Text -> TaffyIO ()
+attachMonitorName widget own = do
+  context <- ask
+  void $ liftIO $ forkIO $ tryTimes context (40 :: Int)
+  where
+    tryTimes _ 0 = barLog "bar monitor unresolved: workspaces split numerically"
+    tryTimes context n = do
+      name <- runReaderT (widgetMonitorName widget) context
+      case name of
+        Just found -> do
+          tryPutMVar own found
+          barLog ("bar monitor: " ++ T.unpack found)
+        Nothing -> threadDelay 500000 >> tryTimes context (n - 1)
+
+-- | Filter the workspace list down to the one bar's monitor. Falls back to the
+-- old numeric 1-6 / 7-12 split whenever the compositor has not told us where
+-- this bar or this workspace lives.
+{-# NOINLINE barScopedWorkspaces #-}
+barScopedWorkspaces :: MVar T.Text -> Bool -> WorkspaceInfo -> Bool
+barScopedWorkspaces own isPrimary ws
+  | workspaceIsSpecial ws = False
+  | Just monitor <- ownMonitor, Just workspaceMonitor <- M.lookup name table, not (T.null workspaceMonitor) =
+      workspaceMonitor == monitor
+  | otherwise = numericSplit
+  where
+    ownMonitor = unsafePerformIO (tryReadMVar own)
+    table = unsafePerformIO (readMVar wsMonitorVar)
+    name = workspaceName (workspaceIdentity ws)
+    numericSplit = maybe False underLimit (workspaceNumericId (workspaceIdentity ws))
+    underLimit n = if isPrimary then n < 6 else n >= 6 && n < 12
+
+refreshWorkspaceMonitors :: HyprlandClient -> IO ()
+refreshWorkspaceMonitors client = do
+  result <- hyprWorkspacesIO client
+  case result of
+    Right rows -> modifyMVar_ wsMonitorVar (\_ -> pure (rowsToMap rows))
+    Left err -> barLog ("workspace monitor refresh failed: " ++ show err)
+  where
+    rowsToMap = foldr (\row acc -> M.insert (hwName row) (hwMonitor row) acc) M.empty
+
+-- | Workspace events worth re-reading the workspace list for. activewindow and
+-- friends fire on every mouse move, so the list stays deliberately narrow.
+relevantWorkspaceEvent :: T.Text -> Bool
+relevantWorkspaceEvent line =
+  any (`T.isPrefixOf` line) $ T.words
+    "workspace workspacev2 focusedmon moveworkspace movewindow openwindow closewindow createworkspace destroyworkspace renameworkspace monitoradded monitorremoved workspacerule"
+
+startHyprlandWatchers :: TaffyIO ()
+startHyprlandWatchers = do
+  hyprland <- sessionIsHyprland
+  liftIO $ barLog ("backend: " ++ (if hyprland then "wayland/hyprland" else "x11"))
+  when hyprland $ do
+    client <- getHyprlandClient
+    void $ liftIO $ tryPutMVar hyprClientVar client
+    liftIO $ refreshWorkspaceMonitors client
+    events <- getHyprlandEventChan
+    subscription <- liftIO $ subscribeHyprlandEvents events
+    void $ liftIO $ forkIO $ forever $ do
+      line <- atomically (readTChan subscription)
+      when (relevantWorkspaceEvent line) $ refreshWorkspaceMonitors client
+    -- the event socket is dropped on a compositor reload; a slow poll means a
+    -- missed burst costs 15 s of stale filtering, not a permanently wrong bar
+    void $ liftIO $ forkIO $ forever $ do
+      threadDelay 15000000
+      refreshWorkspaceMonitors client
+
 
 -- Browsers advertise the *browser* icon for every tab, so resolve the page
 -- favicon from Firefox's own places/favicons dbs (see ff-favicon.py).
@@ -191,21 +432,13 @@ faviconWindowIcon = scaledWindowIconPixbufGetter unscaled
               mpix <- liftIO $ getPixbufFromFilePath path
               maybe (defaultGetWindowIconPixbuf size win) (pure . Just) mpix
 
-workspacesWidget :: Maybe (WorkspaceInfo -> Bool) -> TaffyIO Gtk.Widget
-workspacesWidget visibleOverride = do
-  visible <- case visibleOverride of
-    Just f -> pure f
-    Nothing -> do
-      monitors <- liftIO $ do
-        maybeDisplay <- Gdk.displayGetDefault
-        maybe (pure 1) Gdk.displayGetNMonitors maybeDisplay
-      pure $ if monitors > 1
-        then \ws -> maybe False (< 6) (workspaceNumericId (workspaceIdentity ws))
-        else \ws -> maybe False (< 12) (workspaceNumericId (workspaceIdentity ws))
+workspacesWidget :: Bool -> TaffyIO Gtk.Widget
+workspacesWidget isPrimary = do
+  ownMonitor <- liftIO newEmptyMVar
   widget <-
     workspacesNew
       defaultWorkspacesConfig
-        { showWorkspaceFn = visible,
+        { showWorkspaceFn = barScopedWorkspaces ownMonitor isPrimary,
           urgentWorkspaceState = True,
           iconSize = Just 18,
           maxIcons = Just 4,
@@ -217,6 +450,7 @@ workspacesWidget visibleOverride = do
   liftIO $ do
     Gtk.widgetSetMarginEnd widget 16
     addWorkspaceScroll widget
+  attachMonitorName widget ownMonitor
   pure widget
 
 inhibitorWidget :: TaffyIO Gtk.Widget
@@ -1471,10 +1705,15 @@ addWorkspaceScroll widget = do
     switchWorkspace previous =
       catchAny
         ( do
-            withX11Context DefaultDisplay $ do
-              names <- getWorkspaceNames
-              switchOneWorkspace previous (max 0 (length names - 1))
-            pure True
+          client <- tryReadMVar hyprClientVar
+          case client of
+            Just hyprland ->
+              void $ runHyprlandCommandRaw hyprland (hyprCommand ["dispatch", "workspace", if previous then "m-1" else "m+1"])
+            Nothing ->
+              withX11Context DefaultDisplay $ do
+                names <- getWorkspaceNames
+                switchOneWorkspace previous (max 0 (length names - 1))
+          pure True
         )
         (\_ -> pure True)
 

@@ -1,0 +1,5 @@
+# run outputs: screenshots/json in art/, compositor + bar logs in logs/.
+# Everything transient also stays out of the repo by design — HOME and
+# XDG_RUNTIME_DIR live under /tmp/hyprland-nest.
+art/
+logs/

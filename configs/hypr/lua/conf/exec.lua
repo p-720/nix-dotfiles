@@ -1,7 +1,6 @@
 -- hl = Hyprland
 -- exec (runs every reload)
 hl.exec_cmd("hyprctl setcursor Adwaita 10")
-hl.exec_cmd("/etc/nixos/configs/waybar/launch.sh")
 -- hl.exec_cmd("intel-gpu-tools --custom min=1100 max=1200")
 
 -- exec-once

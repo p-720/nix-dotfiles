@@ -38,6 +38,11 @@ Description="Keyboard - APL - APL symbols (APLX unified)"
 Language=en
 Label=aplx
 
+[keyboard-us-hjkl]
+Description="Keyboard - US layout with hjkl"
+Language=en
+Label=us-hjkl
+
 [keyboard-ua]
 Description="Keyboard - Ukrainian"
 Language=uk

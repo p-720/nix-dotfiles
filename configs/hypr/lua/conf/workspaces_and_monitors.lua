@@ -17,5 +17,5 @@ end
 
 hl.workspace_rule({ workspace = '1', default = true})
 hl.workspace_rule({ workspace = '9', default = true})
-hl.workspace_rule({ workspace = '11', layout = "lua:ff-tg" })
+hl.workspace_rule({ workspace = '11', on_created_empty = "firefox-pwa https://ug.kyrgyzstan.kg/pomotask/"})
 hl.workspace_rule({ workspace = '12', monitor = monitor_2, on_created_empty = "firefox-pwa https://web.max.ru/"})

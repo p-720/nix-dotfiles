@@ -45,6 +45,12 @@ Make taffybar look like waybar and carry the same modules that have taffybar equ
 
 - [ ] Run a full quality pass for compile/runtime issues, missing classes, and leftover dead config.
 
+### 6. Hyprland session
+
+- [ ] taffybar replaces waybar as the Hyprland bar: backend-branched config, per-monitor
+      workspaces keyed off compositor geometry, systemd user unit instead of a session loop.
+      See `TODO-taffybar-hyprland.md` (nested-Hyprland harness in `tests/hyprland-nest/`).
+
 ## Extras
 
 - [x] Switch audio from the legacy PulseAudio widget to the unified Audio widget (WirePlumber/PipeWire).

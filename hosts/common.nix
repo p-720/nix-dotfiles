@@ -93,7 +93,7 @@
   '';
   services.displayManager = {
     enable = true;
-    defaultSession = "none+dwm";
+    defaultSession = "hyprland";
 
     sddm.enable = true;
     sddm.package = pkgs.kdePackages.sddm;

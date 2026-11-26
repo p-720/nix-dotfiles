@@ -1,0 +1,20 @@
+/* The probe bar has to come out exactly 30 px tall.
+
+   `barHeight = ExactSize 30` only asks for a 30 px strut; GTK will not shrink
+   the toplevel below its children's natural height, and the vendor CSS (10-12pt
+   fonts) plus theme button/label padding puts that at ~41 px — which is what
+   `hyprctl -j monitors` then reports as the reserved zone. This file is loaded
+   by taffybar after the vendor CSS at the same priority (TAFFYBAR_CSS_PATHS),
+   and it only exists to flatten padding and font metrics; it styles nothing. */
+
+window#taffybar,
+window#taffybar *,
+.taffy-window,
+.taffy-window * {
+  padding: 0px;
+  margin: 0px;
+  border-width: 0px;
+  min-height: 0px;
+  min-width: 0px;
+  font-size: 11px;
+}

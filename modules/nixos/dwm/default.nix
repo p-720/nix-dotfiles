@@ -91,7 +91,9 @@ in {
         # session (it also ships a taffybar of its own)
         # barEnv is spliced as bare assignments: without a UTF-8 locale the
         # emoji the bar draws come out empty.
-        (while xset q >/dev/null 2>&1; do PATH=${config.modules.taffybar.ghcEnv}/bin:$PATH ${config.modules.taffybar.barEnv} ${pkgs.taffybar}/bin/taffybar; sleep 2; done) &
+        # GDK_BACKEND pinned: a stray WAYLAND_DISPLAY (imported earlier by hyprland,
+        # then lingering in the user manager) must never send the bar off X11
+        (while xset q >/dev/null 2>&1; do PATH=${config.modules.taffybar.ghcEnv}/bin:$PATH ${config.modules.taffybar.barEnv} GDK_BACKEND=x11 ${pkgs.taffybar}/bin/taffybar; sleep 2; done) &
       '';
     };
 

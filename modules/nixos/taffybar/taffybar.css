@@ -129,8 +129,11 @@ window.secondary {
 	box-shadow: none;
 }
 
+/* padding belongs on the box that carries the workspace state class (below),
+   or the plate ends up inset inside a padded box and every button is 20 px
+   wider than it looks */
 .workspace-button .contents {
-	padding: 3px 10px;
+	padding: 0;
 	margin: 0;
 	background-color: transparent;
 	border: none;
@@ -144,7 +147,22 @@ window.secondary {
 	font-weight: normal;
 }
 
-.active .contents {
+/* taffybar 7 puts the workspace state class on the contents box itself, so the
+   box that carries .active/.urgent/... is the plate. The `.active .contents`
+   form this file used needed an ancestor with .active and matched nothing, so
+   neither plate ever drew and the active label was dark-on-dark. All five
+   states are listed because that union is how "the contents box" is spelled
+   without a child combinator. */
+.workspace-button box.active,
+.workspace-button box.visible,
+.workspace-button box.hidden,
+.workspace-button box.empty,
+.workspace-button box.urgent {
+	padding: 3px 10px;
+	border-radius: 2px;
+}
+
+.workspace-button box.active {
 	background-color: #51afef;
 }
 
@@ -152,7 +170,7 @@ window.secondary {
 	color: #2a2e38;
 }
 
-.urgent .contents {
+.workspace-button box.urgent {
 	background-color: #7bc275;
 }
 
@@ -160,11 +178,11 @@ window.secondary {
 	color: #2a2e38;
 }
 
-.visible .contents {
+.workspace-button box.visible {
 	background-color: transparent;
 }
 
-.workspace-button:hover .contents {
+.workspace-button:hover box {
 	background-color: #5cefff;
 }
 
@@ -178,7 +196,19 @@ window.secondary {
 	box-shadow: none;
 }
 
-.window-icon-container.active,
+/* A workspace with four windows is otherwise a blob of favicons: dim
+   everything the focus is not on, then mark the focused one outright. */
+.window-icon-container.inactive .window-icon,
+.window-icon-container.normal .window-icon,
+.window-icon-container.minimized .window-icon {
+	opacity: 0.55;
+}
+
+.window-icon-container.active {
+	background-color: transparent;
+	box-shadow: inset 0 -2px #51afef;
+}
+
 .window-icon-container.urgent {
 	background-color: transparent;
 	box-shadow: none;
