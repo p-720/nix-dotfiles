@@ -283,3 +283,48 @@ menuitem:hover label,
 .taffy-window menuitem:hover label {
 	color: #2a2e38;
 }
+
+/* Dostavista: courier orders whose every point is near home. The poller decides
+   what each state means; this only paints it. Red is reserved for "blocked from
+   earning", so a working courier with nothing near home never shouts. New-order
+   highlight is a light block with dark text, the way the idle inhibitor marks
+   itself active, because that one flash is the only thing meant to pull eyes. */
+
+.module.dostavista label {
+	color: #ffffff;
+}
+
+.module.dostavista.dostavista--idle label {
+	opacity: 0.5;
+}
+
+.module.dostavista.dostavista--stale label {
+	color: #e5c07b;
+}
+
+.module.dostavista.dostavista--error label {
+	color: #e06c75;
+}
+
+.module.dostavista.dostavista--highlight {
+	background-color: #7bc275;
+}
+
+.module.dostavista.dostavista--highlight label {
+	color: #2d3436;
+	font-weight: bold;
+}
+
+/* Hover preview: up to 5 order cards, two per row, map on the left of each.
+   The theme gives every tooltip label 10px of padding, which would blow a
+   3-line card to 90px tall. */
+
+tooltip .dostavista-preview label {
+	padding: 0 2px;
+	color: #ffffff;
+}
+
+tooltip .dostavista-preview image {
+	background-color: rgba(255, 255, 255, 0.04);
+	border: 1px solid rgba(166, 227, 161, 0.2);
+}

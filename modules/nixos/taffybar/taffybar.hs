@@ -7,10 +7,10 @@ import Control.Concurrent.STM (atomically, newBroadcastTChanIO, readTChan, write
 import Control.Concurrent.STM.TChan (TChan)
 import Control.Exception (IOException, SomeException, bracket, catch, finally, try)
 import Control.Exception.Enclosed (catchAny)
-import Control.Monad (foldM, forM_, forever, replicateM, unless, void, when)
+import Control.Monad (foldM, forM_, forever, replicateM, unless, void, when, zipWithM_)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Reader (ask, asks, runReaderT)
-import Data.Aeson (FromJSON (..), Object, Value (..), eitherDecode, encode, object, (.=), (.:), (.:?), withObject)
+import Data.Aeson (FromJSON (..), Object, Value (..), eitherDecode, eitherDecode', encode, object, (.=), (.:), (.:?), withObject)
 import qualified Data.Aeson.Key as AK
 import qualified Data.Aeson.KeyMap as KM
 import Data.Bits (shiftR, testBit, xor, (.&.), (.|.))
@@ -23,6 +23,7 @@ import Data.Char (isAlphaNum, isSpace, ord)
 import Data.Default (def)
 import Data.Foldable (toList)
 import Data.GI.Base (unsafeCastTo)
+import Data.GI.Base.Properties (setObjectPropertyInt)
 import Data.IORef (IORef, modifyIORef', newIORef, readIORef, writeIORef)
 import Data.List (dropWhileEnd, find, isPrefixOf, stripPrefix)
 import Data.Maybe (fromMaybe, listToMaybe)
@@ -43,11 +44,14 @@ import qualified GI.Gdk.Structs.Rectangle as GdkRectangle
 import qualified GI.Gtk as Gtk
 import qualified Network.Connection as NC
 import qualified StatusNotifier.Tray as Tray
+import System.Directory (getXdgDirectory, XdgDirectory (XdgCache))
 import System.Environment (lookupEnv)
 import System.Exit (ExitCode (..))
 import System.IO (hClose, hFlush, hIsEOF, hPutStr, hPutStrLn, hSetEncoding, stderr, stdout, utf8)
 import System.IO.Unsafe (unsafePerformIO)
+import System.Posix.Files (getFileStatus, modificationTime)
 import System.Posix.Process (exitImmediately)
+import System.Posix.Types (EpochTime)
 import System.Posix.Signals (Handler (Catch), installHandler, sigTERM, signalProcessGroup)
 import System.Process
 import System.Random (randomIO)
@@ -100,6 +104,13 @@ main = do
   -- squash the slider fills to 2px. Load the same file again at SCHEMA
   -- priority (100) so our CSS is authoritative, as the file intends.
   Gtk.init Nothing
+  -- GTK's default tooltip delay (~1 s) is where a hover-preview widget earns a
+  -- reputation for sluggishness, and these previews are pre-rendered, so there is
+  -- nothing to wait for. Global: the volume and workspace tooltips speed up too.
+  -- Set via the raw property setter - haskell-gi's label syntax needs an
+  -- extension GHC 9.10 refuses in this file.
+  maybe (pure ()) (\s -> setObjectPropertyInt s "gtk-tooltip-timeout" 150)
+    =<< Gtk.settingsGetDefault
   cssPath <- getTaffyFile "taffybar.css"
   provider <- Gtk.cssProviderNew
   Gtk.cssProviderLoadFromPath provider (T.pack cssPath)
@@ -134,7 +145,7 @@ primaryBarConfig =
     { barCssClasses = ["primary"],
       startWidgets = [workspacesWidget True, inhibitorWidget, memoryWidget],
       centerWidgets = [pomotaskWidget, clockWidget],
-      endWidgets = [audioSliderWidget, micSliderWidget, weatherWidget, polypomoWidget]
+      endWidgets = [audioSliderWidget, micSliderWidget, weatherWidget, polypomoWidget, dostavistaWidget]
     }
 
 secondaryBarConfig :: SimpleTaffyConfig
@@ -1844,6 +1855,232 @@ addWorkspaceScroll widget = do
           pure True
         )
         (\_ -> pure True)
+
+-- Dostavista: courier orders whose every point is a short walk from home.
+-- The poller (modules/nixos/dostavista, a systemd user unit) makes every
+-- decision - shift state, filters, map previews, notifications - and this
+-- widget only paints state.json, so tuning a filter never costs a bar
+-- recompile. No click or scroll: it shows, it does not act.
+
+dvStateFile :: IO FilePath
+dvStateFile = getXdgDirectory XdgCache "dostavista/state.json"
+
+dvSlots :: Int
+dvSlots = 5
+
+data DVOrder = DVOrder
+  { dvoLines :: ![T.Text]
+  , dvoPng :: !(Maybe T.Text)
+  }
+
+data DVDoc = DVDoc
+  { dvState :: !T.Text
+  , dvHidden :: !Bool
+  , dvLine :: !T.Text
+  , dvDetail :: !T.Text
+  , dvStale :: !Bool
+  , dvHighlight :: !Bool
+  , dvMore :: !Int
+  , dvOrders :: ![DVOrder]
+  }
+
+instance FromJSON DVOrder where
+  parseJSON = withObject "dvorder" $ \o ->
+    DVOrder <$> o .: "lines" <*> o .:? "png"
+
+instance FromJSON DVDoc where
+  parseJSON = withObject "dvdoc" $ \o -> do
+    st <- o .: "state"
+    hidden <- o .: "hidden"
+    line <- o .: "line"
+    detail <- o .:? "detail"
+    stale <- o .: "stale"
+    hl <- o .: "highlight"
+    more <- o .:? "more"
+    orders <- o .: "orders"
+    pure $
+      DVDoc st hidden line (fromMaybe T.empty detail) stale hl (fromMaybe 0 more) orders
+
+-- The poller sleeps 300 s while offline, so this has to be looser than any
+-- interval it uses. Past it the numbers on the bar are frozen, which is the one
+-- failure this widget must not hide: a stale "3 · 1 200 ₽" reads exactly like a
+-- live one. The poller cannot flag this itself - if the unit is dead it is not
+-- running to write anything.
+dvStaleAfterS :: Double
+dvStaleAfterS = 900
+
+-- No file at all means this host has no poller (the same taffybar.hs runs on the
+-- laptop and oldpc), so the widget says nothing. A file that will not parse is
+-- different: something is installed and is now wrong, and that gets a shout.
+data DVRead
+  = DVDocOK DVDoc
+  | DVDocMissing
+  | DVDocBad String
+
+-- age of the state file in seconds
+dvAgeOf :: FilePath -> IO (Maybe Double)
+dvAgeOf path = do
+  now <- getPOSIXTime
+  r <- (try (modificationTime <$> getFileStatus path) :: IO (Either IOException EpochTime))
+  pure $ case r of
+    Left _ -> Nothing
+    Right t -> Just (realToFrac (now - realToFrac t) :: Double)
+
+dvLoad :: FilePath -> IO DVRead
+dvLoad path = do
+  bytes <- catch (Just <$> BL.readFile path) (\(_ :: IOException) -> pure (Nothing :: Maybe BL.ByteString))
+  case bytes of
+    Nothing -> pure DVDocMissing
+    Just bs -> case eitherDecode' bs of
+      Left err -> pure (DVDocBad ("state.json: " ++ err))
+      Right doc -> pure (DVDocOK doc)
+
+dvSetLine :: Gtk.IsWidget w => Gtk.Label -> w -> DVDoc -> IO ()
+dvSetLine label box d = do
+  Gtk.labelSetText label (dvLine d)
+  Gtk.widgetSetVisible box (not (dvHidden d) && not (T.null (T.strip (dvLine d))))
+  when (dvState d == "idle") $ addClassIfMissing "dostavista--idle" box
+  when (dvState d == "error") $ addClassIfMissing "dostavista--error" box
+  when (dvStale d) $ addClassIfMissing "dostavista--stale" box
+  when (dvHighlight d) $ addClassIfMissing "dostavista--highlight" box
+  when (dvState d /= "idle") $ removeClassIfPresent "dostavista--idle" box
+  when (dvState d /= "error") $ removeClassIfPresent "dostavista--error" box
+  when (not (dvStale d)) $ removeClassIfPresent "dostavista--stale" box
+  when (not (dvHighlight d)) $ removeClassIfPresent "dostavista--highlight" box
+  Gtk.widgetQueueResize box
+
+dvErrorDoc :: T.Text -> DVDoc
+dvErrorDoc detail = DVDoc "error" False (T.pack "\x25C8 \x26A0") detail False False 0 []
+
+-- The tooltip rows are built once and refilled on every hover: query-tooltip
+-- re-fires whenever the pointer re-enters, and a fresh box per query leaks its
+-- children into GTK's single tooltip window. Contents only change on a hover,
+-- so a poll that outlasts a glance never reorders the list under the cursor.
+-- Cards sit two per row: the preview wants to be big enough to read the streets
+-- at a glance, and stacking 5 of them in one column makes a tooltip taller than
+-- the bar-to-cursor gap. Two across keeps the height near one column's worth of
+-- small cards while doubling the map.
+dvCardsPerRow :: Int
+dvCardsPerRow = 2
+
+data DVTooltip = DVTooltip
+  { dvTipBox :: Gtk.Box
+  , dvTipCards :: [(Gtk.Box, [Gtk.Label], Gtk.Image)]  -- in slot order, rows flattened
+  , dvTipFooter :: Gtk.Label
+  }
+
+dvBuildTooltip :: IO DVTooltip
+dvBuildTooltip = do
+  outer <- Gtk.boxNew Gtk.OrientationVertical 8
+  _ <- widgetSetClassGI outer "dostavista-preview"
+  cards <- replicateM dvSlots dvCard
+  footer <- Gtk.labelNew Nothing
+  Gtk.labelSetXalign footer 0
+  -- deliberately not wrapped: the cards already set the tooltip's width, and a
+  -- wrapped footer breaks amounts mid-number ("топ 1 / 354 ₽")
+  Gtk.widgetSetHalign footer Gtk.AlignStart
+  forM_ [0, dvCardsPerRow .. dvSlots - 1] $ \start -> do
+    row <- Gtk.boxNew Gtk.OrientationHorizontal 8
+    forM_ [start .. min (start + dvCardsPerRow - 1) (dvSlots - 1)] $ \i ->
+      Gtk.boxPackStart row (fst3 (cards !! i)) False False 0
+    Gtk.boxPackStart outer row False False 0
+  Gtk.boxPackStart outer footer False False 0
+  Gtk.widgetShowAll outer
+  pure $ DVTooltip outer cards footer
+  where
+    fst3 (a, _, _) = a
+    dvCard = do
+      card <- Gtk.boxNew Gtk.OrientationHorizontal 8
+      img <- Gtk.imageNew
+      texts <- Gtk.boxNew Gtk.OrientationVertical 2
+      labels <- replicateM 3 (Gtk.labelNew Nothing)
+      forM_ labels $ \l -> do
+        -- wrap on with a hard char cap: without it the longest order line sets
+        -- the card width and two cards across would need a monitor-width tooltip
+        Gtk.labelSetLineWrap l True
+        Gtk.labelSetMaxWidthChars l 28
+        -- left, not centred: the label widget fills the column GTK sized to the
+        -- widest card, so centred text starts at a different x on every row
+        Gtk.labelSetXalign l 0
+        Gtk.boxPackStart texts l False False 0
+      Gtk.containerAdd card img
+      Gtk.containerAdd card texts
+      pure (card, labels, img)
+
+dvFillTooltip :: Maybe DVDoc -> DVTooltip -> IO ()
+dvFillTooltip mdoc tip = do
+  let detail = maybe T.empty dvDetail mdoc
+      moreNote = case fmap dvMore mdoc of
+        Just n | n > 0 -> T.pack (printf "\x2026 и ещё %d" n)
+        _ -> T.empty
+      note = T.intercalate "\n" (filter (not . T.null) [detail, moreNote])
+  Gtk.labelSetText (dvTipFooter tip) note
+  Gtk.widgetSetVisible (dvTipFooter tip) (not (T.null note))
+  let orders = maybe [] dvOrders mdoc
+  forM_ [0 .. dvSlots - 1] $ \i -> do
+    let (card, labels, image) = dvTipCards tip !! i
+    case drop i orders of
+      [] -> Gtk.widgetSetVisible card False
+      (order : _) -> do
+        Gtk.widgetSetVisible card True
+        let texts = take 3 (dvoLines order) ++ replicate (max 0 (3 - length (dvoLines order))) T.empty
+        zipWithM_ (\l txt -> Gtk.labelSetText l txt >> Gtk.widgetSetVisible l (not (T.null txt))) labels texts
+        mpix <- case dvoPng order of
+          Nothing -> pure Nothing
+          Just p -> getPixbufFromFilePath (T.unpack p)
+        Gtk.imageSetFromPixbuf image mpix
+
+dostavistaWidget :: TaffyIO Gtk.Widget
+dostavistaWidget = do
+  label <- liftIO $ Gtk.labelNew Nothing
+  lab <- Gtk.toWidget label
+  box <- moduleWrap "dostavista" lab
+  liftIO $ do
+    -- start hidden: the first read decides, and an empty square on a fresh bar
+    -- looks like a widget that is broken rather than one with nothing to say
+    Gtk.widgetSetVisible box False
+    Gtk.widgetSetHasTooltip box True
+  docRef <- liftIO $ newIORef (Nothing :: Maybe DVDoc)
+  tipRef <- liftIO $ newIORef (Nothing :: Maybe DVTooltip)
+  path <- liftIO dvStateFile
+  _ <- liftIO $
+    Gtk.onWidgetQueryTooltip box $ \_ _ _ tip -> do
+      doc <- readIORef docRef
+      cached <- readIORef tipRef
+      built <- case cached of
+        Just t -> pure t
+        Nothing -> do
+          t <- dvBuildTooltip
+          writeIORef tipRef (Just t)
+          pure t
+      dvFillTooltip doc built
+      Gtk.tooltipSetCustom tip (Just (dvTipBox built))
+      pure True
+  _ <- liftIO . forkIO $ forever $
+    catchAny
+      ( do
+          r <- dvLoad path
+          age <- dvAgeOf path
+          case r of
+            DVDocOK doc -> do
+              -- the poller's own stale flag only covers "I polled and failed";
+              -- this covers "nobody polled"
+              let d = doc { dvStale = dvStale doc || maybe False (> dvStaleAfterS) age }
+              writeIORef docRef (Just d)
+              postGUIASync $ dvSetLine label box d
+            DVDocMissing -> do
+              writeIORef docRef Nothing
+              postGUIASync $ Gtk.widgetSetVisible box False
+            DVDocBad err -> do
+              let d = dvErrorDoc (T.pack err)
+              writeIORef docRef (Just d)
+              postGUIASync $ dvSetLine label box d
+      )
+      (\_ -> pure ())
+    -- the bar watches a file the poller writes; 2 s is enough to catch a dead
+    -- unit long before the 900 s stale window, and reading a few KB costs nothing
+    >> threadDelay 2000000
+  pure box
 
 padded :: Gtk.IsWidget widget => widget -> IO Gtk.Widget
 padded child = do

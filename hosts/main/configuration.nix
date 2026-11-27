@@ -581,6 +581,7 @@ ACTION=="add|change", KERNEL=="event[0-9]*", SUBSYSTEM=="input", ATTRS{name}=="T
   # environment.sessionVariables.NAUTILUS_EXTENSION_DIR = "${config.system.path}/lib/nautilus/extensions-4";
   modules.taffybar.enable = true;
   modules.taffybar.waylandBar.enable = true;
+  modules.dostavista.enable = true;
   environment.systemPackages = with pkgs; [
     # omnisharp-roslyn
     # roslyn-ls

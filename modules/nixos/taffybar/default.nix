@@ -4,13 +4,22 @@ with lib;
 let
   cfg = config.modules.taffybar;
 
+  # What taffybar.hs shells out to: python3 for ff-favicon.py (which itself
+  # shells to ImageMagick for svg favicons and the FF-flame stamp), wpctl for the
+  # WirePlumber volume, bash for streamingCommand. A --user unit gets only
+  # systemd's minimal PATH - coreutils, findutils, gnugrep, gnused, systemd - so
+  # without these the bar dies on the first window title with
+  # `python3: readCreateProcessWithExitCode: posix_spawnp: does not exist`, and
+  # dyreeed restarts make it a crash loop against the start limit.
+  barBinPath = lib.makeBinPath [ pkgs.python3 pkgs.imagemagick pkgs.wireplumber pkgs.bash ];
+
   # The env the dwm launch line splices as `VAR=val` prefixes, in a script
   # instead: ExecStart has no shell to take that form (see its comment).
   waylandLaunch = pkgs.writeShellScript "taffybar-wayland" ''
     # dyre recompiles taffybar.hs on change and shells out to ghc; that env's bin
     # must precede PATH but must not leak into the rest of the session (it also
     # ships a taffybar of its own)
-    PATH=${cfg.ghcEnv}/bin:$PATH
+    PATH=${cfg.ghcEnv}/bin:${barBinPath}:$PATH
     # export, not bare: an assignment with no command on the line sets a shell
     # var that never reaches the bar (the dwm line prefixes the bar itself)
     export ${cfg.barEnv}

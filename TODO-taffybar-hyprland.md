@@ -82,8 +82,10 @@ session on this host.
       fallback when scaled origins differ, no bogus match, primary 1–6, secondary 7–12,
       specials hidden, no overlap, live `moveworkspace` moves the button, unresolved-monitor
       and empty-table fall back to numeric. All pass.
-- [ ] fold the same cases into `tests/` once this settles (needs the logic in a library
-      module rather than a `Main` file).
+- [x] The cases live in `tests/taffybar-workspace-filter/` (`./run.sh`, 23 assertions,
+      fixtures are scrubbed `hyprctl -j` output from this box). It is a transcription of
+      pure code in a `Main` module, so it documents intent rather than catching drift —
+      README says which commit has to move with it.
 
 ### 3. CSS
 
@@ -94,9 +96,9 @@ session on this host.
       gives the plate waybar's extent.
 - [x] Focused-window marking: icons other than the focused one dim to `.55`, the focused one
       gets an inset `#51afef` underline.
-- [ ] Wayland-only height flattening file, if the measured reserved zone is not 30: load a
-      second CSS (e.g. `taffybar-wayland.css`) only when the display backend is Wayland, so
-      the dwm bar keeps its metrics. Decide in task 5.
+- [x] No Wayland-only CSS needed: with the repo CSS loaded, the real config's bar
+      reserves `[0,0,0,30]` on both outputs (measured; the probe's 41 px came from the
+      probe's own font metrics, and an empty stylesheet also measures 30 here).
 
 ### 4. Service and session wiring
 
@@ -115,17 +117,90 @@ session on this host.
 ### 5. Verification before the user rebuilds
 
 - [x] `ghc -fno-code` with the deployed ghc env: clean (pre-existing deprecation warnings only).
-- [ ] nested harness + real config/CSS: reserved zone per output, both bars logging distinct
-      `bar monitor:` names, live `moveworkspace` shifting the strip, no X11/EWMH stderr
-      (lane running; result goes under "Verification results").
-- [ ] dwm regression on the `:2` Xvfb rig: bar geometry, active plate now drawing (measured
-      pixels), scroll-to-switch in both directions, overlay/special-tag behaviour unchanged
-      (lane running; result goes under "Verification results").
+- [x] nested harness + real config/CSS (`REAL=1 ./tests/hyprland-nest/harness.sh all`):
+      **19 checks, 0 failures**, fresh cold dyred compile. Numbers below.
+- [x] dwm regression on the `:2` Xvfb rig: geometry/strut/scroll/overlays identical on
+      HEAD vs new; one real regression found and fixed (`multiMonitor`). Numbers below.
 - [ ] user-side smoke test after `rebuild-default` + re-login (see checklist).
 
 ## Verification results
 
-(pasted from the two lanes as they land)
+### Real config under nested Hyprland (`REAL=1 ./harness.sh all`, exit 0, 19/19)
+
+- layer surfaces `x=0|1280 y=770 w=1280 h=30`, one per output, namespace `taffybar`; \
+  `hyprctl -j monitors` reserves **`[0,0,0,30]` on both** — the bar is 30 px, as asked.
+- the config's own trail, verbatim:
+  ```
+  taffybar: backend: wayland/hyprland
+  taffybar: monitor 0 -> headless-1 x=0
+  taffybar: monitor 1 -> headless-2 x=1280
+  taffybar: bar monitor: headless-1
+  taffybar: bar monitor: headless-2
+  ```
+  `no-bar-monitor-unresolved` (0 fallbacks taken), `no-workspace-refresh-failed`,
+  `no-x11-exception-text` all pass.
+- **the per-monitor filter, end to end**: `memory-plate-found` puts the `#9b59b6` module at
+  col 338 (headless-1) / 251 (headless-2). `hyprctl dispatch moveworkspacetomonitor 6
+  headless-2` → plate slides to 305 / 284, i.e. **33 px left on one bar and 33 px right on
+  the other, symmetric, reversible**, with **0 s** latency (event socket, 15 s poll behind
+  it). That is workspace 6's button crossing bars, measured.
+- band pixels real (mean 10928 / 502 colours; 10759 / 530), `band-reacts-to-window` 3291 px
+  on open, 9627 px on move. `polypomo-sqlite-untouched` before/after identical.
+- stubs that were actually hit: `wpctl` (mic slider polls), `setpriv` (polypomo chain),
+  `status-notifier-watcher` on a private bus for the tray. Not hit: `curl` (wttr), `python3`
+  (favicon helper). `pomotask` hid itself for want of an API key, as designed.
+- **those stubs bound what is proven**: `setpriv` stubbed ⇒ `polypomo` never ran ⇒ the
+  untouched `time.sqlite` is a fact about the stub; `wpctl` stubbed ⇒ the sliders are empty
+  troughs and a wrong argv would pass unseen; `systemd-inhibit` is exec'd by store path, so
+  no PATH shim can intercept it; the tray only survives because a watcher was put on the
+  private bus. Favicons, tray contents, wttr and pomotask with a real key stay live checks.
+- reproduced four times (20:04, 20:11, 20:16, 20:22) with the dyred cache cleared each
+  time; plate columns 338/251 → 305/284 identical across all four. The harness's readiness
+  gate was fixed along the way — pixel stability cannot work while the clock ticks, so it
+  now waits on the plate itself.
+
+### dwm `:2` rig, HEAD vs new
+
+| | bar window | strut | measured H | exact `#51afef` px | scroll click5/click4 |
+|---|---|---|---|---|---|
+| HEAD hs + HEAD css | 1553x30+0+770 DOCK+BELOW | bottom 30 | **30** | 1562 | switches at all 7 x probed |
+| HEAD hs + new css | same | same | 30 | 1562 | unchanged |
+| new hs + new css | 1328x30+0+770 | same | 30 | 1562 | switches over workspaces and over the clock |
+
+- X11 never drifts to Wayland: `_GTK_LAYER_SHELL_SHELL_PROTOCOL` absent, zero
+  layer-shell/wayland lines in any log, and the config logs `backend: x11`.
+- overlays unchanged: after `super+c` the client is at `X=50` with `_DWM_SPECIAL_TAG=19`
+  and absent from `_NET_CLIENT_LIST`; hiding moves it to `X=-2510` (moved, not unmapped).
+  `F12`/alacritty could not be driven (xdotool F-key flakiness, per AGENTS.md).
+- the only real pixel delta of the CSS rewrite is **icon dimming**: 455 of 12600 strip px,
+  one icon slot, `(41,88,120)` → `(59,127,173)` = `0.55·icon + 0.45·plate`. `.inactive`,
+  `.normal` and `.minimized` all reach `.window-icon`; the focused one stays full.
+- **refuted by measurement**: the plate always drew — `.active .contents` matches, and
+  `.contents.active` draws **0 px**, so the state class sits on a box that *wraps* the
+  contents. `box.active` paints the identical 101x30 region, so the plate rewrite is a
+  naming change, not a fix. An inset `#51afef` underline is invisible inside the active
+  plate, hence `#2a2e38`.
+- **real regression found and fixed**: `barScopedWorkspaces` narrowed the primary bar to
+  `1-5` on a *single*-screen X11 session where HEAD showed `1-11`. Now gated on
+  `multiMonitor`; `tests/taffybar-workspace-filter` checks 22-23 pin both cases.
+
+### Filter logic (`tests/taffybar-workspace-filter/run.sh`)
+
+23 assertions, 0 failures, against live 0.56.2 JSON: parse, position match, reorder,
+size-only fallback, no bogus match, `1-6` / `7-12`, no overlap, no specials, live move,
+empty-table / unresolved-monitor / mid-drag rows, single-monitor fallback `1-11`.
+
+### Incident worth remembering
+
+A real-mode attempt copied `tests/hyprland-nest/cfg/taffybar.hs` over
+`modules/nixos/taffybar/taffybar.hs` at 19:46 and left it there ~2 h. Nothing live was
+affected (no bar restarted in the window, and `~/.cache/taffybar` still held the 17:55
+build of the real config), but the tree was restored from the typecheck copy. `preflight`
+now dies if the probe's text is at the repo path, and the harness README opens with the
+rule. The damage outlived the file: that lane's final report retracted the per-monitor
+evidence as "a stale dyred binary", because the one cold run it trusted started at 19:52 —
+inside the probe window — and so saw two identical bars, no memory plate and no `taffybar:`
+trail. That evidence re-does itself identically four times on the restored tree.
 
 ## Deploy / smoke checklist (user runs `rebuild-default`, then logs out and in)
 
@@ -144,6 +219,12 @@ session on this host.
 
 ## Open
 
+- Not covered by any rig: `:hover` (the rig's `XQueryPointer` returns `WINDOW=0` over the
+  bar, so GTK never enters hover — both spellings of the rule are equally unproven), the
+  green `.urgent` plate, and the `visible`/`hidden`/`empty` states. Cheap to settle by
+  hand in the live session: put a window urgent, watch the button.
+- Favicons, tray contents and the network widgets (wttr, pomotask with a real key) were
+  deliberately stubbed or absent in every harness run; those are live-session checks.
 - Icon fallback table: no `FFPWA-*`/`brave-*` windows were open during analysis and
   `~/.local/share/applications` has no matching `.desktop` files, so the misses are still
   unmeasured. Decide from the live smoke test; the hook is wired
