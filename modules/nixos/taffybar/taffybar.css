@@ -147,12 +147,12 @@ window.secondary {
 	font-weight: normal;
 }
 
-/* taffybar 7 puts the workspace state class on the contents box itself, so the
-   box that carries .active/.urgent/... is the plate. The `.active .contents`
-   form this file used needed an ancestor with .active and matched nothing, so
-   neither plate ever drew and the active label was dark-on-dark. All five
-   states are listed because that union is how "the contents box" is spelled
-   without a child combinator. */
+/* The workspace state class sits on a box inside .workspace-button. Measured on
+   the :2 rig, the old `.active .contents` and this `box.active` paint the exact
+   same 101x30 region, so the plate is unchanged: this is the same plate spelled
+   by node name (`.contents` is a name any module could reuse) and padded on the
+   box that actually paints. All five states are listed because that union spells
+   "the state box" without a child combinator. */
 .workspace-button box.active,
 .workspace-button box.visible,
 .workspace-button box.hidden,
@@ -196,19 +196,10 @@ window.secondary {
 	box-shadow: none;
 }
 
-/* A workspace with four windows is otherwise a blob of favicons: dim
-   everything the focus is not on, then mark the focused one outright. */
-.window-icon-container.inactive .window-icon,
-.window-icon-container.normal .window-icon,
-.window-icon-container.minimized .window-icon {
-	opacity: 0.55;
-}
-
-.window-icon-container.active {
-	background-color: transparent;
-	box-shadow: inset 0 -2px #51afef;
-}
-
+/* No dimming and no underline here: the workspace plate already says which
+   button is focused, and an inset bar on top of it just reads as a stray
+   underscore. */
+.window-icon-container.active,
 .window-icon-container.urgent {
 	background-color: transparent;
 	box-shadow: none;

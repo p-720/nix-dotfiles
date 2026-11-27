@@ -165,6 +165,9 @@ in {
   hyprland = [ unstable.hyprland.version unstable.hyprland.outPath ];
   labwc = [ stable.labwc.version stable.labwc.outPath ];
   taffybar = [ withTaffybar.taffybar.version withTaffybar.taffybar.outPath ];
+  # Buildable form of the same three pins. `nix eval` only plans an output path;
+  # realizing is what puts bytes in the store, and a gc can take them back.
+  build = { hyprland = unstable.hyprland; labwc = stable.labwc; taffybar = withTaffybar.taffybar; };
 }
 EOF
   out=$(timeout "${PIN_TIMEOUT:-300}" nix eval --impure --json --file "$exprfile" 2>"$LOGS/pins-nix.err") \
@@ -174,11 +177,18 @@ EOF
     "LABWC_RESOLVED=\"\(.labwc[1])\"\nLABWC_VER=\"\(.labwc[0])\"\n" +
     "TAFFYBAR_RESOLVED=\"\(.taffybar[1])\"\nTAFFYBAR_VER=\"\(.taffybar[0])\""
   ' <<<"$out" > "$PINS_CACHE.tmp"
-  # A path nix evaluated but never fetched is not an error — the fallback covers
-  # it — but saying so beats silently swapping in a different build.
-  for p in HYPRLAND LABWC TAFFYBAR; do
+  # nix eval only plans paths. A gc can take one back, and pin() then dies on a
+  # pin it just printed (the hardcoded fallback is a store path too, so GC eats it
+  # just as easily) — so realize the missing ones here rather than warn and hope.
+  for pair in "HYPRLAND:hyprland" "LABWC:labwc" "TAFFYBAR:taffybar"; do
+    p=${pair%%:*}; attr=${pair##*:}
     path=$(awk -v k="${p}_RESOLVED" -F'=' '$1==k{gsub(/"/,""); print $2}' "$PINS_CACHE.tmp")
-    if [ -n "$path" ] && [ ! -e "$path" ]; then warn "resolved ${p,,} path not in store: $path"; fi
+    if [ -n "$path" ] && [ ! -e "$path" ]; then
+      log "  realizing $p (nix eval gave a path with no bytes: $path)"
+      timeout "${PIN_BUILD_TIMEOUT:-900}" nix build --impure --no-link --file "$exprfile" "build.$attr" \
+        > /dev/null 2>>"$LOGS/pins-nix.err" || warn "nix build of $p failed (logs/pins-nix.err)"
+      [ -e "$path" ] || warn "resolved $p path still not in store: $path"
+    fi
   done
   mv "$PINS_CACHE.tmp" "$PINS_CACHE"
   log "pins: resolved by nix against $REPO, cached in $PINS_CACHE"
@@ -247,6 +257,12 @@ preflight() {
   case "$RUN_XDGR" in
     /run/user/*) die "NEST_ROOT would put the private runtime dir inside a live session: $RUN_XDGR" ;;
   esac
+  # $REPO_HS is the user's live bar: ~/.config/taffybar/taffybar.hs is an
+  # out-of-store symlink to it. If the probe's text ever lands there the bar is
+  # silently replaced, so refuse before touching anything. It has happened.
+  if rg -q 'Probe config for tests/hyprland-nest' "$REPO_HS" 2>/dev/null; then
+    die "$REPO_HS holds cfg/taffybar.hs's probe text, not the user's config. Restore it first."
+  fi
   # Anything inherited from the live session would let the child find the user's
   # bus or socket. All of it is overwritten below, so it is reported and dropped
   # rather than refused — but only when it really was somebody else's.
@@ -518,10 +534,10 @@ band_h_px() {
     | jq -r '[.. | objects | select(.namespace? == "taffybar") | .h] | max // 0'
 }
 
-strip_crop() { # <output> <png> <band-height>
-  local o=$1 out=$2 bh=$3
+strip_crop() { # <output> <png> <band-height> [width]
+  local o=$1 out=$2 bh=$3 w=${4:-$MOVE_BAND_W}
   timeout 15 grim -o "$o" "$ART/.full-$o.png" || return 1
-  magick "$ART/.full-$o.png" -crop "${MOVE_BAND_W}x${bh}+0+$((OUT_H - bh))" +repage "$out"
+  magick "$ART/.full-$o.png" -crop "${w}x${bh}+0+$((OUT_H - bh))" +repage "$out"
 }
 
 # Leftmost column of the memory plate. It is the first solid block to the right
@@ -689,23 +705,26 @@ taffy() {
 # nothing, so none of this is observable from it.
 # Surface presence is not readiness: a cold dyred compile maps its layer window
 # seconds before the widgets are painted, and the first runs of this section
-# asserted against a half-built bar. The repo config logs nothing, so the only
-# config-agnostic readiness signal is "the band stopped changing".
+# asserted against a half-built bar. "The band stopped changing" is no good
+# either — the clock ticks and the memory module re-renders, so it never settles —
+# so the gate waits for the same thing the move checks measure: a memory plate.
 realbar_wait_widgets() {
-  local w1=${OUTPUTS%% *} w2=${OUTPUTS##* } bh t0=$SECONDS before after i
+  local w1=${OUTPUTS%% *} w2=${OUTPUTS##* } bh c1 c2
   bh=$(band_h_px); bh=${bh:-30}
-  before=$(md5sum "$ART/.ready-1.png" 2>/dev/null || echo -)
+  # 420 px contains the plate on either bar (measured col 338 and 251) and leaves
+  # the centred clock out of every sample.
+  local ready_w=${READY_BAND_W:-420} t0=$SECONDS
   while :; do
-    strip_crop "$w1" "$ART/.ready-1.png" "$bh" || true
-    strip_crop "$w2" "$ART/.ready-2.png" "$bh" || true
-    after=$(md5sum "$ART/.ready-1.png" "$ART/.ready-2.png" 2>/dev/null | md5sum)
-    if [ "$after" = "$before" ]; then
-      info "bar widgets built" "both bands unchanged for 2s, $((SECONDS-t0))s past the first layer surface"
+    strip_crop "$w1" "$ART/.ready-1.png" "$bh" "$ready_w" || true
+    strip_crop "$w2" "$ART/.ready-2.png" "$bh" "$ready_w" || true
+    c1=$(purple_first "$ART/.ready-1.png"); c2=$(purple_first "$ART/.ready-2.png")
+    if [ "$c1" != -1 ] && [ "$c2" != -1 ]; then
+      info "bar widgets built" "memory plate on both bands (col $c1 / $c2) after $((SECONDS-t0))s"
       return 0
     fi
     bar_dead "$(getpid taffybar)" && { warn "bar died while its widgets were being built"; return 1; }
-    [ $((SECONDS-t0)) -ge "${WIDGET_LIMIT:-60}" ] && { warn "bands still changing after $((SECONDS-t0))s (bar may still be filling modules)"; return 1; }
-    before=$after; sleep 2
+    [ $((SECONDS-t0)) -ge "${WIDGET_LIMIT:-60}" ] && { warn "no memory plate on both bands after $((SECONDS-t0))s (c1=$c1 c2=$c2)"; return 1; }
+    sleep 2
   done
 }
 
@@ -748,6 +767,34 @@ real_checks() {
   refresh_failed=$(count 'workspace monitor refresh failed' "$log")
   check "no-bar-monitor-unresolved" "$([ "$unresolved" = 0 ] && echo 0 || echo 1)" "count=$unresolved (the numeric 1-6/7-12 split would have hidden a broken match)"
   check "no-workspace-refresh-failed" "$([ "$refresh_failed" = 0 ] && echo 0 || echo 1)" "count=$refresh_failed"
+
+  # ---- 2b. the dispatch the scroll path sends actually lands ----
+  # Hyprland 0.56.2 parses `dispatch <rest>` as Lua when the config is Lua — so the
+  # documented `dispatch workspace m+1` is a Lua syntax error there (hyprctl fails
+  # it too) and only `hl.dsp.focus({workspace="m+1"})` lands. With a hyprlang
+  # config — what this harness boots — it is the other way round. Scroll cannot be
+  # injected here, so this pins the assumption instead of measuring it: whichever
+  # spelling this compositor accepts must be one the config will try. The forms
+  # mirror workspaceSwitchForms in taffybar.hs; checks 30–32 of
+  # tests/taffybar-workspace-filter pin those bytes from the Haskell side.
+  sig=$(newsig)
+  sock="$XDG_RUNTIME_DIR/hypr/$sig/.socket.sock"
+  send_cmd() { # send_cmd <command bytes> -> first line of the reply
+    [ -S "$sock" ] || { printf 'no command socket at %s\n' "$sock"; return; }
+    python3 -c '
+import socket, sys
+s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+s.connect(sys.argv[1])
+s.sendall(sys.argv[2].encode())
+s.shutdown(1)
+print(s.recv(2048).decode(errors="replace")[:120])
+' "$sock" "$1" 2>&1 | tr -d '\n'
+  }
+  lua_reply=$(send_cmd 'dispatch hl.dsp.focus({workspace="m+1"})')
+  legacy_reply=$(send_cmd 'dispatch workspace m+1')
+  check "dispatch-payload-lands" \
+    "$( { printf '%s' "$lua_reply" | rg -q '^ok' || printf '%s' "$legacy_reply" | rg -q '^ok'; } && echo 0 || echo 1)" \
+    "lua form -> ${lua_reply:0:60} | legacy form -> ${legacy_reply:0:60} (the config tries both and caches the winner)"
 
   # ---- 3. nothing X11 woke up ----
   x11=$(count 'X11|BadAtom|cannot open display|NullPtr|callStack' "$log")

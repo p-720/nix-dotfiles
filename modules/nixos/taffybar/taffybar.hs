@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
+import Control.Applicative ((<|>))
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.MVar (MVar, modifyMVar_, newEmptyMVar, newMVar, readMVar, swapMVar, tryPutMVar, tryReadMVar, tryTakeMVar, withMVar)
 import Control.Concurrent.STM (atomically, newBroadcastTChanIO, readTChan, writeTChan)
@@ -51,6 +52,8 @@ import System.Posix.Signals (Handler (Catch), installHandler, sigTERM, signalPro
 import System.Process
 import System.Random (randomIO)
 import System.Taffybar (dyreTaffybar, getTaffyFile)
+import Graphics.UI.GIGtkStrut (strutMonitor)
+import qualified System.Taffybar.Context as C (strutConfig)
 import System.Taffybar.Context (Backend (..), Context (..), TaffyIO, backend)
 import System.Taffybar.Information.Audio (AudioInfo (..), defaultAudioPulseSink, defaultAudioWirePlumberNode, getAudioInfoChanAndVar)
 import System.Taffybar.Information.WirePlumber
@@ -286,15 +289,45 @@ matchMonitorBox boxes (x, y, w, h) =
     matchesPosition (bx, by, _, _, _) = bx == x && by == y
     matchesSize (_, _, bw, bh, _) = bw == w && bh == h
 
+-- | The monitor this bar is being put on, read from the strut taffybar will put
+-- it on. Asking GTK which monitor a window sits on is a guess here: a
+-- layer-shell surface has no global position, and on Wayland
+-- `gdk_display_get_monitor_at_window` falls back to whatever the pointer is
+-- over — measured live, both bars were told DP-5 (0,0,2560,1080) that way and
+-- both drew the primary's workspaces. The strut index is what actually decides
+-- placement, so it cannot disagree with where the bar ends up.
+barStrutMonitorBox :: TaffyIO (Maybe (Int, Int, Int, Int))
+barStrutMonitorBox = do
+  context <- ask
+  case contextBarConfig context of
+    Nothing -> pure Nothing
+    Just barConfig -> case strutMonitor (C.strutConfig barConfig) of
+      Nothing -> pure Nothing
+      Just index -> liftIO (gdkMonitorBox (fromIntegral index))
+
 -- | Which Hyprland monitor this widget's bar is drawn on.
 widgetMonitorName :: Gtk.Widget -> TaffyIO (Maybe T.Text)
 widgetMonitorName widget = do
   boxes <- hyprMonitorBoxes
   if null boxes
-    then pure Nothing
+    then liftIO (barLog "hypr boxes empty") >> pure Nothing
     else do
+      strutBox <- barStrutMonitorBox
       own <- liftIO widgetMonitorBox
-      pure $ snd5 <$> (own >>= matchMonitorBox boxes)
+      -- Both coordinate spaces in one line: the strut box is what the fix
+      -- depends on, the at-window box is what the fallback used to trust.
+      liftIO $
+        barLog
+          ( "strut box "
+              ++ show strutBox
+              ++ " | at-window "
+              ++ show own
+              ++ " | hypr "
+              ++ show boxes
+          )
+      let matched = snd5 <$> ((strutBox <|> own) >>= matchMonitorBox boxes)
+      liftIO $ barLog ("matched " ++ show matched)
+      pure matched
   where
     snd5 (_, _, _, _, name) = name
     widgetMonitorBox = do
@@ -332,8 +365,8 @@ attachMonitorName widget own = do
 -- old numeric 1-6 / 7-12 split whenever the compositor has not told us where
 -- this bar or this workspace lives.
 {-# NOINLINE barScopedWorkspaces #-}
-barScopedWorkspaces :: MVar T.Text -> Bool -> WorkspaceInfo -> Bool
-barScopedWorkspaces own isPrimary ws
+barScopedWorkspaces :: MVar T.Text -> Bool -> Bool -> WorkspaceInfo -> Bool
+barScopedWorkspaces own isPrimary multiMonitor ws
   | workspaceIsSpecial ws = False
   | Just monitor <- ownMonitor, Just workspaceMonitor <- M.lookup name table, not (T.null workspaceMonitor) =
       workspaceMonitor == monitor
@@ -343,7 +376,12 @@ barScopedWorkspaces own isPrimary ws
     table = unsafePerformIO (readMVar wsMonitorVar)
     name = workspaceName (workspaceIdentity ws)
     numericSplit = maybe False underLimit (workspaceNumericId (workspaceIdentity ws))
-    underLimit n = if isPrimary then n < 6 else n >= 6 && n < 12
+    -- one bar covers the whole desktop when there is only one screen, so the
+    -- primary split only narrows to 1-5 once a second bar exists to hold 6-12
+    underLimit n
+      | isPrimary && multiMonitor = n < 6
+      | isPrimary = n < 12
+      | otherwise = n >= 6 && n < 12
 
 refreshWorkspaceMonitors :: HyprlandClient -> IO ()
 refreshWorkspaceMonitors client = do
@@ -435,10 +473,13 @@ faviconWindowIcon = scaledWindowIconPixbufGetter unscaled
 workspacesWidget :: Bool -> TaffyIO Gtk.Widget
 workspacesWidget isPrimary = do
   ownMonitor <- liftIO newEmptyMVar
+  multiMonitor <- liftIO $ do
+    maybeDisplay <- Gdk.displayGetDefault
+    maybe (pure False) (fmap (> 1) . Gdk.displayGetNMonitors) maybeDisplay
   widget <-
     workspacesNew
       defaultWorkspacesConfig
-        { showWorkspaceFn = barScopedWorkspaces ownMonitor isPrimary,
+        { showWorkspaceFn = barScopedWorkspaces ownMonitor isPrimary multiMonitor,
           urgentWorkspaceState = True,
           iconSize = Just 18,
           maxIcons = Just 4,
@@ -723,11 +764,11 @@ volumeSlider klass infoSource nodeSpec title iconOn iconOff = do
   -- handler on the top-level window from also firing
   _ <- liftIO $
     Gtk.onWidgetScrollEvent box $ \event -> do
-      direction <- GdkScroll.getEventScrollDirection event
-      case direction of
-        Gdk.ScrollDirectionUp -> void (adjustWirePlumberVolume nodeSpec 2) >> forkIO refresh >> pure True
-        Gdk.ScrollDirectionDown -> void (adjustWirePlumberVolume nodeSpec (-2)) >> forkIO refresh >> pure True
-        _ -> pure False
+      step <- scrollStep event
+      case step of
+        Just True -> void (adjustWirePlumberVolume nodeSpec 2) >> forkIO refresh >> pure True
+        Just False -> void (adjustWirePlumberVolume nodeSpec (-2)) >> forkIO refresh >> pure True
+        Nothing -> pure False
   -- dragging across the module sets the volume from the pointer position
   _ <- liftIO $
     Gtk.onWidgetMotionNotifyEvent box $ \event -> do
@@ -1586,11 +1627,11 @@ pomotaskWidget = do
         -- the scroll into a workspace switch instead
         Gtk.widgetAddEvents box [Gdk.EventMaskScrollMask]
         void $ Gtk.onWidgetScrollEvent box $ \event -> do
-          direction <- GdkScroll.getEventScrollDirection event
-          case direction of
-            Gdk.ScrollDirectionUp -> pomoAdjust env refs 60000 >> pure True
-            Gdk.ScrollDirectionDown -> pomoAdjust env refs (-60000) >> pure True
-            _ -> pure False
+          step <- scrollStep event
+          case step of
+            Just True -> pomoAdjust env refs 60000 >> pure True
+            Just False -> pomoAdjust env refs (-60000) >> pure True
+            Nothing -> pure False
         void $ Gtk.onWidgetButtonPressEvent box $ \event -> do
           button <- GdkButton.getEventButtonButton event
           case button of
@@ -1667,6 +1708,94 @@ installTerminationHandler =
       (Catch (terminateAllProcesses >> exitImmediately ExitSuccess))
       Nothing
 
+-- Hyprland 0.56.2 parses the remainder of `dispatch <rest>` as Lua when the config
+-- is Lua, so the documented `dispatch workspace m+1` is a Lua syntax error there —
+-- hyprctl fails it too. Measured both ways: the live session (Lua config) takes
+-- only `hl.dsp.focus({workspace="m+1"})`; the nested harness (hyprlang config)
+-- takes only the legacy form and answers "Invalid dispatcher" to the Lua one. So
+-- try both and remember the one that answers ok. Pure so
+-- tests/taffybar-workspace-filter can pin the bytes.
+workspaceSwitchForms :: Bool -> [[String]]
+workspaceSwitchForms previous = [["dispatch", luaCall], ["dispatch", "workspace", step]]
+  where
+    step = if previous then "m-1" else "m+1"
+    luaCall = "hl.dsp.focus({workspace=\"" ++ step ++ "\"})"
+
+-- | Remembered index into `workspaceSwitchForms` for this session.
+{-# NOINLINE dispatchFormRef #-}
+dispatchFormRef :: IORef Int
+dispatchFormRef = unsafePerformIO (newIORef 0)
+
+-- | Fire the first dispatch spelling Hyprland answers `ok` to, and cache which
+-- index that was so later scrolls cost one round trip. The command socket replies
+-- `ok` even when its own Lua snippet rejected the command, so ok-ness is decided
+-- by prefix here rather than by the socket succeeding.
+dispatchWorkspace :: HyprlandClient -> Bool -> IO ()
+dispatchWorkspace client previous = go 0 (workspaceSwitchForms previous)
+  where
+    go _ [] = pure ()
+    go i (form:rest) = do
+      reply <- runHyprlandCommandRaw client (hyprCommand form)
+      if replyIsOk reply
+        then do
+          writeIORef dispatchFormRef i
+          barLog ("dispatch form " ++ show i ++ " accepted: " ++ dispatchReplyText reply)
+        else do
+          barLog ("dispatch form " ++ show i ++ " refused: " ++ dispatchReplyText reply)
+          go (i + 1) rest
+
+replyIsOk :: Either HyprlandError ByteString -> Bool
+replyIsOk (Left _) = False
+replyIsOk (Right out) = BS.isPrefixOf "ok" out
+
+dispatchReplyText :: Either HyprlandError BS.ByteString -> String
+dispatchReplyText (Left err) = "left " ++ show err
+dispatchReplyText (Right out)
+  | BS.isInfixOf "error:" out = "rejected: " ++ show (BS.take 160 out)
+  | otherwise = "ok " ++ show (BS.take 40 out)
+
+-- The wheel arrives differently per backend: X11 (dwm) turns it into a discrete
+-- scroll event, Hyprland into a smooth one whose direction field comes back
+-- ScrollDirectionSmooth. So a handler that matches only Up/Down switches
+-- workspaces under dwm and silently does nothing under Hyprland. Just True =
+-- wheel up, Just False = wheel down.
+smoothStep :: Double -> Double -> Maybe Bool
+smoothStep dx dy
+  | abs dy < abs dx = Nothing -- a mostly-sideways swipe is not a wheel step
+  | dy < 0 = Just True
+  | dy > 0 = Just False
+  | otherwise = Nothing
+
+-- A wheel notch under Hyprland arrives as *two* scroll events, measured back to
+-- back: a discrete one (ScrollDirectionDown, dy=0) and a smooth one
+-- (ScrollDirectionSmooth, dy=1.5). Acting on both switches two workspaces per
+-- notch. X11 sends discrete only, so discrete is the canonical spelling and
+-- smooth is only trusted while no discrete event has been seen — a touchpad, or a
+-- compositor that never sends axis_discrete.
+{-# NOINLINE sawDiscreteScroll #-}
+sawDiscreteScroll :: IORef Bool
+sawDiscreteScroll = unsafePerformIO (newIORef False)
+
+scrollStep :: GdkScroll.EventScroll -> IO (Maybe Bool)
+scrollStep event = do
+  direction <- GdkScroll.getEventScrollDirection event
+  case direction of
+    Gdk.ScrollDirectionUp -> discreteStep (Just True)
+    Gdk.ScrollDirectionLeft -> discreteStep (Just True)
+    Gdk.ScrollDirectionDown -> discreteStep (Just False)
+    Gdk.ScrollDirectionRight -> discreteStep (Just False)
+    Gdk.ScrollDirectionSmooth -> do
+      discreteSeen <- readIORef sawDiscreteScroll
+      if discreteSeen
+        then pure Nothing
+        else do
+          dx <- GdkScroll.getEventScrollDeltaX event
+          dy <- GdkScroll.getEventScrollDeltaY event
+          pure (smoothStep dx dy)
+    _ -> pure Nothing
+  where
+    discreteStep step = writeIORef sawDiscreteScroll True >> pure step
+
 attachBarScroll :: TaffyIO ()
 attachBarScroll = do
   context <- ask
@@ -1694,21 +1823,20 @@ addWorkspaceScroll widget = do
   Gtk.widgetAddEvents widget [Gdk.EventMaskScrollMask]
   void $
     Gtk.onWidgetScrollEvent widget $ \event -> do
+      step <- scrollStep event
       direction <- GdkScroll.getEventScrollDirection event
-      case direction of
-        Gdk.ScrollDirectionUp -> switchWorkspace True
-        Gdk.ScrollDirectionLeft -> switchWorkspace True
-        Gdk.ScrollDirectionDown -> switchWorkspace False
-        Gdk.ScrollDirectionRight -> switchWorkspace False
-        _ -> pure False
+      dy <- GdkScroll.getEventScrollDeltaY event
+      liftIO $ barLog ("scroll dir=" ++ show direction ++ " dy=" ++ show dy ++ " -> " ++ show step)
+      case step of
+        Just previous -> switchWorkspace previous
+        Nothing -> pure False
   where
     switchWorkspace previous =
       catchAny
         ( do
           client <- tryReadMVar hyprClientVar
           case client of
-            Just hyprland ->
-              void $ runHyprlandCommandRaw hyprland (hyprCommand ["dispatch", "workspace", if previous then "m-1" else "m+1"])
+            Just hyprland -> dispatchWorkspace hyprland previous
             Nothing ->
               withX11Context DefaultDisplay $ do
                 names <- getWorkspaceNames
@@ -1769,11 +1897,11 @@ streamingCommand klass command buttons scrollActions = do
     forM_ scrollActions $ \(upAction, downAction) ->
       void $
         Gtk.onWidgetScrollEvent box $ \event -> do
-          direction <- GdkScroll.getEventScrollDirection event
-          case direction of
-            Gdk.ScrollDirectionUp -> spawnCommand upAction >> pure True
-            Gdk.ScrollDirectionDown -> spawnCommand downAction >> pure True
-            _ -> pure False
+          step <- scrollStep event
+          case step of
+            Just True -> spawnCommand upAction >> pure True
+            Just False -> spawnCommand downAction >> pure True
+            Nothing -> pure False
   _ <- liftIO $
     forkIO $
       forever $ do

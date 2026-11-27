@@ -142,16 +142,30 @@ not `hyprctl` subprocesses).
 
 ## Real mode (`REAL=1`)
 
+> **Nothing in this directory may write under `/etc/nixos`.**
+> `modules/nixos/taffybar/taffybar.hs` is symlinked out-of-store into
+> `~/.config/taffybar`, so "making the real config start" by replacing that file
+> replaces the user's bar. On 26 Nov a real-mode attempt copied `cfg/taffybar.hs`
+> over it, which is why the numbers recorded below disagree with each other: anything
+> started between 19:46 and 19:53 graded the probe, and other runs graded a dyred binary
+> older than the config. `preflight` now dies if the probe's text is found at the repo
+> path, and real mode deletes a binary older than the config unconditionally. The set that
+> reproduces is in the block below. If the real config cannot start, **stub what it
+> shells out to and report the failure** — do not edit or replace it.
+
 > **Corrected 26 Nov, after re-running with a guaranteed-fresh compile.** The
 > numbers pasted below under "the 8 checks real mode adds" were graded against a
 > **stale dyred binary** — `~/.cache/taffybar/…taffybar-wrapped` was newer than the
 > symlinked `taffybar.hs`, so dyre ran an older bar instead of the repo config.
 > That bar logged a `taffybar: bar monitor: …` trail and drew a `#9b59b6` memory
-> plate. The repo config as it stands does neither. The harness now deletes a
-> binary older than the config unconditionally (not even `REAL_CLEAN=0` skips it).
+> plate. The harness now deletes a binary older than the config unconditionally (not even
+> `REAL_CLEAN=0` skips it) — but that retraction overcorrected: the run it trusted as
+> "guaranteed-fresh" started at **19:52**, inside the window (19:46–19:53) when the repo
+> path held the probe, so it graded the probe. `TAFFYBAR_LOG` is read by the config
+> (`barLogOn`), and it emits a trail.
 >
-> What a fresh cold run (`REAL=1 ./harness.sh all`, `# checks=15 failed=1`, exit 1,
-> 1m55s) actually establishes:
+> What two cold runs after the restore establish (`REAL=1 ./harness.sh all`, 20:04 and
+> 20:11, each with `dyre cache cleared`, `# checks=19 failed=0`, exit 0):
 >
 > - **one taffybar layer surface per output** at `x=0|1280 y=770 w=1280 h=30`, and
 >   `hyprctl -j monitors` reserves **`[0,0,0,30]` on both** — so the live config's
@@ -159,24 +173,32 @@ not `hyprctl` subprocesses).
 >   CSS loaded. The probe's 41 px without flattening CSS does not recur here.
 > - `REAL_CSS=none` (empty stylesheet) also measures `[0,0,0,30]`: the CSS is not
 >   what lands this config on 30 px.
-> - band pixels are real: mean 4759.6 / 322 colours (headless-1), 5039.0 / 323
->   (headless-2).
-> - **the two bars render the same strip** — `1 2 3 4 5 ›`, clock, media title,
->   byte-identical 700×30 crops on both outputs — and **no `#9b59b6` memory plate is
->   drawn**, so `memory-plate-found` fails and the move checks cannot run. Whether
->   that is the workspace filter falling back, the overflow chevron, or the memory
->   module not reaching the strip is *not yet diagnosed*; the earlier "both bars
->   react, ±33 px symmetric" result describes the other bar and must not be quoted.
-> - `bar-monitor-distinct` is reported as SKIPPED: the config emits no `taffybar:`
->   trail at all (`TAFFYBAR_LOG` is read by nothing in it or in the library), so
->   stderr cannot show which monitor each bar resolved. The pixel version is the one
->   that matters and it currently fails.
-> - the readiness gate reports "bands still changing after 61s": a seconds clock
->   means the band never settles, so that signal is wrong and should key on
->   everything but the clock region.
+> - band pixels are real, measured four times over (20:04, 20:11, 20:16, 20:22): band mean
+>   ~10700–10930 with 498–535 colours per output. The probe sits around 4250 / 217.
+> - **the bars do not render the same strip**: the `#9b59b6` memory module starts at col
+>   338 on headless-1 and 251 on headless-2. `hyprctl dispatch moveworkspacetomonitor 6
+>   headless-2` slides it to 305 / 284 — one 33 px button leaving one bar and arriving on
+>   the other, symmetric, reversible, **0 s** latency. That is the per-monitor workspace
+>   filter, measured, and it is the point of real mode.
+> - `bar-monitor-distinct` passes on stderr: `monitor 0 -> headless-1 x=0`,
+>   `monitor 1 -> headless-2 x=1280`, `bar monitor: headless-1`, `bar monitor: headless-2`,
+>   with `no-bar-monitor-unresolved` and `no-workspace-refresh-failed` clean.
+> - the readiness gate used to warn "bands still changing after 61s" for no reason: pixel
+>   stability is unusable when the clock ticks and the memory module re-renders. It now
+>   waits for the plate itself and reports readiness in 0 s.
 >
 > What follows is kept because the module-parity work and the stub inventory are
 > still accurate; only the pixel/log conclusions above were wrong.
+
+> **What real mode's stubs do NOT prove.** `setpriv` is stubbed, so the `polypomo` chain
+> dies there and `polypomo` itself never runs — "nothing wrote to `time.sqlite`" is a fact
+> about the stub, not about the real path. `wpctl` is stubbed, so both volume sliders are
+> empty troughs and a wrong `wpctl` argv would go unnoticed. `systemd-inhibit` is exec'd by
+> absolute store path, so a PATH shim cannot intercept it at all. `curl`/`python3` were
+> never called because the harness `HOME` has no `pomo_*` key and no network widgets were
+> reached — not because anything was filtered. And `trayWidget` needs a watcher on the bus
+> (`SNITray.hs:322` takes the bar down without one), so "the real config runs" is only true
+> with `status-notifier-watcher` up.
 
 `taffy_setup real` symlinks `modules/nixos/taffybar/taffybar.{hs,css}` into
 `$HOME/.config/taffybar/` exactly as `modules/nixos/taffybar/default.nix` does —
@@ -296,6 +318,12 @@ by design there; its only job is the height control, and there it says 30 px.
   taffybar's has a way to inject pointer events into a surface. Scroll is
   therefore untestable in this harness, and nothing here stands in for it: the
   strip screenshots prove only the *rendering* side of the workspace widget.
+  The gap is where the one real bug hid: Hyprland delivers the wheel as a
+  *smooth* scroll event (`direction = GDK_SCROLL_SMOOTH`, the step lives in the
+  deltas) while X11 delivers discrete Up/Down. A handler matching only the
+  discrete spellings switches workspaces under dwm and does nothing under
+  Hyprland, and no run of this file would notice. `tests/taffybar-workspace-filter`
+  pins the delta-sign mapping instead (checks 24–29).
 - **Anything that needs a keyboard.** There is no keyboard device either, so all
   state changes go through `hyprctl dispatch`, and focus-only visual changes are
   not a usable signal (the same crop measured 48 px in one scratch run and 0 in

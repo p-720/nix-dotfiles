@@ -1,0 +1,26 @@
+[
+ {
+  "id": 0,
+  "name": "HDMI-A-3",
+  "make": "AOC",
+  "model": "2269W",
+  "width": 1920,
+  "height": 1080,
+  "x": 2560,
+  "y": 0,
+  "focused": true,
+  "description": "AOC 2269W"
+ },
+ {
+  "id": 1,
+  "name": "DP-5",
+  "make": "LG Electronics",
+  "model": "LG HDR WFHD",
+  "width": 2560,
+  "height": 1080,
+  "x": 0,
+  "y": 0,
+  "focused": false,
+  "description": "LG Electronics LG HDR WFHD"
+ }
+]

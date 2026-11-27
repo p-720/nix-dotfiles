@@ -1,0 +1,106 @@
+[
+ {
+  "id": 9,
+  "name": "9",
+  "monitor": "HDMI-A-3",
+  "monitorID": 0,
+  "windows": 1,
+  "special": null
+ },
+ {
+  "id": 1,
+  "name": "1",
+  "monitor": "DP-5",
+  "monitorID": 1,
+  "windows": 1,
+  "special": null
+ },
+ {
+  "id": 2,
+  "name": "2",
+  "monitor": "DP-5",
+  "monitorID": 1,
+  "windows": 1,
+  "special": null
+ },
+ {
+  "id": 3,
+  "name": "3",
+  "monitor": "DP-5",
+  "monitorID": 1,
+  "windows": 1,
+  "special": null
+ },
+ {
+  "id": 4,
+  "name": "4",
+  "monitor": "DP-5",
+  "monitorID": 1,
+  "windows": 0,
+  "special": null
+ },
+ {
+  "id": 5,
+  "name": "5",
+  "monitor": "DP-5",
+  "monitorID": 1,
+  "windows": 0,
+  "special": null
+ },
+ {
+  "id": 6,
+  "name": "6",
+  "monitor": "DP-5",
+  "monitorID": 1,
+  "windows": 0,
+  "special": null
+ },
+ {
+  "id": 7,
+  "name": "7",
+  "monitor": "HDMI-A-3",
+  "monitorID": 0,
+  "windows": 0,
+  "special": null
+ },
+ {
+  "id": 8,
+  "name": "8",
+  "monitor": "HDMI-A-3",
+  "monitorID": 0,
+  "windows": 0,
+  "special": null
+ },
+ {
+  "id": 10,
+  "name": "10",
+  "monitor": "HDMI-A-3",
+  "monitorID": 0,
+  "windows": 1,
+  "special": null
+ },
+ {
+  "id": 11,
+  "name": "11",
+  "monitor": "HDMI-A-3",
+  "monitorID": 0,
+  "windows": 1,
+  "special": null
+ },
+ {
+  "id": -98,
+  "name": "special:alacritty",
+  "monitor": "HDMI-A-3",
+  "monitorID": 0,
+  "windows": 1,
+  "special": null
+ },
+ {
+  "id": 12,
+  "name": "12",
+  "monitor": "HDMI-A-3",
+  "monitorID": 0,
+  "windows": 1,
+  "special": null
+ }
+]
